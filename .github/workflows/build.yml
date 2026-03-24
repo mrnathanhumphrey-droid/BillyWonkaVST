@@ -101,64 +101,10 @@ jobs:
           # Presets
           cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
 
-          # Install script
-          cat > "$DIST/install.sh" << 'SCRIPT'
-          #!/bin/bash
-          echo "=== BW BASS v1.0.0 Installer ==="
-          echo ""
-
-          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-          # VST3
-          VST3_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
-          mkdir -p "$VST3_DIR"
-          if [ -d "$SCRIPT_DIR/VST3/Groove Engine RnB.vst3" ]; then
-            cp -R "$SCRIPT_DIR/VST3/Groove Engine RnB.vst3" "$VST3_DIR/"
-            echo "VST3 installed to: $VST3_DIR"
-          fi
-
-          # AU
-          AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
-          mkdir -p "$AU_DIR"
-          if [ -d "$SCRIPT_DIR/AU/Groove Engine RnB.component" ]; then
-            cp -R "$SCRIPT_DIR/AU/Groove Engine RnB.component" "$AU_DIR/"
-            echo "AU installed to: $AU_DIR"
-          fi
-
-          # Presets
-          PRESET_DIR="$HOME/Library/Application Support/BW BASS/Presets/Factory"
-          mkdir -p "$PRESET_DIR"
-          cp "$SCRIPT_DIR/Presets/Factory/"*.xml "$PRESET_DIR/"
-          echo "Presets installed to: $PRESET_DIR"
-
-          echo ""
-          echo "Done! Rescan plugins in your DAW."
-          SCRIPT
+          # Install script and README from checked-in files
+          cp scripts/install_mac.sh "$DIST/install.sh"
           chmod +x "$DIST/install.sh"
-
-          # README
-          cat > "$DIST/README.txt" << 'EOF'
-          BW BASS v1.0.0 — Billy Wonka Music
-          Moog-Inspired R&B Bass Synthesizer
-
-          INSTALLATION
-          ============
-          Option 1: Run install.sh
-            Open Terminal, cd to this folder, run: ./install.sh
-
-          Option 2: Manual
-            VST3:  Copy "Groove Engine RnB.vst3" to ~/Library/Audio/Plug-Ins/VST3/
-            AU:    Copy "Groove Engine RnB.component" to ~/Library/Audio/Plug-Ins/Components/
-            App:   Drag "Groove Engine RnB.app" to /Applications/
-
-          Rescan plugins in your DAW after installing.
-
-          REQUIREMENTS
-          ============
-          - macOS 11+ (Big Sur or later)
-          - Universal Binary: runs natively on Intel and Apple Silicon
-          - VST3/AU compatible DAW (Ableton, Logic, FL Studio, Reaper)
-          EOF
+          cp scripts/README_mac.txt "$DIST/README.txt"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
