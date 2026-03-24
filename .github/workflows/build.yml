@@ -76,6 +76,11 @@ jobs:
           cp dist/BW_BASS_v1.0.0_Win64/README.txt "$DIST/" 2>/dev/null || true
 
       # ---- macOS packaging ----
+      - name: List build artifacts (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: find build/GrooveEngineRnB_artefacts -type f | head -50
+
       - name: Package (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -83,28 +88,44 @@ jobs:
           DIST="dist/${{ matrix.artifact_name }}"
           mkdir -p "$DIST/VST3" "$DIST/AU" "$DIST/Standalone" "$DIST/Presets/Factory"
 
-          # VST3
-          if [ -d build/GrooveEngineRnB_artefacts/Release/VST3 ]; then
-            cp -R build/GrooveEngineRnB_artefacts/Release/VST3/*.vst3 "$DIST/VST3/" 2>/dev/null || true
+          # Ninja is single-config so artifacts may be in Release/ or directly in artefacts/
+          ARTS="build/GrooveEngineRnB_artefacts"
+          if [ -d "$ARTS/Release" ]; then
+            ARTS="$ARTS/Release"
           fi
+
+          echo "Artifact root: $ARTS"
+          ls -R "$ARTS" || true
+
+          # VST3
+          find "$ARTS" -name "*.vst3" -type d | head -1 | while read vst3; do
+            echo "Copying VST3: $vst3"
+            cp -R "$vst3" "$DIST/VST3/"
+          done
 
           # AU
-          if [ -d build/GrooveEngineRnB_artefacts/Release/AU ]; then
-            cp -R build/GrooveEngineRnB_artefacts/Release/AU/*.component "$DIST/AU/" 2>/dev/null || true
-          fi
+          find "$ARTS" -name "*.component" -type d | head -1 | while read au; do
+            echo "Copying AU: $au"
+            cp -R "$au" "$DIST/AU/"
+          done
 
           # Standalone
-          if [ -d build/GrooveEngineRnB_artefacts/Release/Standalone ]; then
-            cp -R "build/GrooveEngineRnB_artefacts/Release/Standalone/Groove Engine RnB.app" "$DIST/Standalone/" 2>/dev/null || true
-          fi
+          find "$ARTS" -name "*.app" -type d | head -1 | while read app; do
+            echo "Copying Standalone: $app"
+            cp -R "$app" "$DIST/Standalone/"
+          done
 
           # Presets
           cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
 
-          # Install script and README from checked-in files
+          # Install script and README
           cp scripts/install_mac.sh "$DIST/install.sh"
           chmod +x "$DIST/install.sh"
           cp scripts/README_mac.txt "$DIST/README.txt"
+
+          # Verify package contents
+          echo "=== Package contents ==="
+          find "$DIST" -type f | head -30
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
