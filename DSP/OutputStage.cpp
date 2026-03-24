@@ -136,10 +136,13 @@ float OutputStage::process(float input)
     }
 
     // --- Tape Saturation (after drive, before compressor) ---
-    sample = tapeSat.processSample(sample);
-
-    // --- Compressor (after tape sat, before EQ) ---
-    sample = compressor.processSample(sample);
+    // Gate processing when signal is below noise floor to prevent
+    // amplifying floating-point noise through compressor makeup gain
+    if (std::abs(sample) > 1.0e-6f)
+    {
+        sample = tapeSat.processSample(sample);
+        sample = compressor.processSample(sample);
+    }
 
     // --- Bass Shelf EQ (80 Hz) ---
     if (std::abs(bassGainDB) > 0.01f)
