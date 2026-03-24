@@ -1,0 +1,191 @@
+name: Build BW BASS
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Win64
+            cmake_generator: Ninja
+            cmake_args: ""
+            artifact_name: BW_BASS_Win64
+          - os: macos-latest
+            name: macOS
+            cmake_generator: Ninja
+            cmake_args: "-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
+            artifact_name: BW_BASS_macOS
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja -y
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Clone JUCE
+        run: git clone --depth 1 --branch 8.0.6 https://github.com/juce-framework/JUCE.git JUCE
+
+      - name: Configure
+        run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }}
+
+      - name: Build
+        run: cmake --build build --config Release -j 2
+
+      # ---- Windows packaging ----
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          DIST="dist/${{ matrix.artifact_name }}"
+          mkdir -p "$DIST/VST3" "$DIST/Standalone" "$DIST/Presets/Factory"
+          cp -r build/GrooveEngineRnB_artefacts/Release/VST3/*.vst3 "$DIST/VST3/"
+          cp build/GrooveEngineRnB_artefacts/Release/Standalone/*.exe "$DIST/Standalone/"
+          cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
+          cp dist/BW_BASS_v1.0.0_Win64/Install.bat "$DIST/" 2>/dev/null || true
+          cp dist/BW_BASS_v1.0.0_Win64/README.txt "$DIST/" 2>/dev/null || true
+
+      # ---- macOS packaging ----
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          DIST="dist/${{ matrix.artifact_name }}"
+          mkdir -p "$DIST/VST3" "$DIST/AU" "$DIST/Standalone" "$DIST/Presets/Factory"
+
+          # VST3
+          if [ -d build/GrooveEngineRnB_artefacts/Release/VST3 ]; then
+            cp -R build/GrooveEngineRnB_artefacts/Release/VST3/*.vst3 "$DIST/VST3/" 2>/dev/null || true
+          fi
+
+          # AU
+          if [ -d build/GrooveEngineRnB_artefacts/Release/AU ]; then
+            cp -R build/GrooveEngineRnB_artefacts/Release/AU/*.component "$DIST/AU/" 2>/dev/null || true
+          fi
+
+          # Standalone
+          if [ -d build/GrooveEngineRnB_artefacts/Release/Standalone ]; then
+            cp -R "build/GrooveEngineRnB_artefacts/Release/Standalone/Groove Engine RnB.app" "$DIST/Standalone/" 2>/dev/null || true
+          fi
+
+          # Presets
+          cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
+
+          # Install script
+          cat > "$DIST/install.sh" << 'SCRIPT'
+          #!/bin/bash
+          echo "=== BW BASS v1.0.0 Installer ==="
+          echo ""
+
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+          # VST3
+          VST3_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
+          mkdir -p "$VST3_DIR"
+          if [ -d "$SCRIPT_DIR/VST3/Groove Engine RnB.vst3" ]; then
+            cp -R "$SCRIPT_DIR/VST3/Groove Engine RnB.vst3" "$VST3_DIR/"
+            echo "VST3 installed to: $VST3_DIR"
+          fi
+
+          # AU
+          AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
+          mkdir -p "$AU_DIR"
+          if [ -d "$SCRIPT_DIR/AU/Groove Engine RnB.component" ]; then
+            cp -R "$SCRIPT_DIR/AU/Groove Engine RnB.component" "$AU_DIR/"
+            echo "AU installed to: $AU_DIR"
+          fi
+
+          # Presets
+          PRESET_DIR="$HOME/Library/Application Support/BW BASS/Presets/Factory"
+          mkdir -p "$PRESET_DIR"
+          cp "$SCRIPT_DIR/Presets/Factory/"*.xml "$PRESET_DIR/"
+          echo "Presets installed to: $PRESET_DIR"
+
+          echo ""
+          echo "Done! Rescan plugins in your DAW."
+          SCRIPT
+          chmod +x "$DIST/install.sh"
+
+          # README
+          cat > "$DIST/README.txt" << 'EOF'
+          BW BASS v1.0.0 — Billy Wonka Music
+          Moog-Inspired R&B Bass Synthesizer
+
+          INSTALLATION
+          ============
+          Option 1: Run install.sh
+            Open Terminal, cd to this folder, run: ./install.sh
+
+          Option 2: Manual
+            VST3:  Copy "Groove Engine RnB.vst3" to ~/Library/Audio/Plug-Ins/VST3/
+            AU:    Copy "Groove Engine RnB.component" to ~/Library/Audio/Plug-Ins/Components/
+            App:   Drag "Groove Engine RnB.app" to /Applications/
+
+          Rescan plugins in your DAW after installing.
+
+          REQUIREMENTS
+          ============
+          - macOS 11+ (Big Sur or later)
+          - Universal Binary: runs natively on Intel and Apple Silicon
+          - VST3/AU compatible DAW (Ableton, Logic, FL Studio, Reaper)
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}/
+          retention-days: 30
+
+  # ---- Create release on tag push ----
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Zip artifacts
+        run: |
+          cd artifacts
+          for dir in */; do
+            name="${dir%/}"
+            zip -r "../${name}.zip" "$dir"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true
