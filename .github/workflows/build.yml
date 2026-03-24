@@ -22,7 +22,7 @@ jobs:
           - os: macos-latest
             name: macOS
             cmake_generator: Ninja
-            cmake_args: '-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0'
+            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
             artifact_name: BW_BASS_macOS
 
     runs-on: ${{ matrix.os }}
@@ -51,7 +51,12 @@ jobs:
       - name: Clone JUCE
         run: git clone --depth 1 --branch 8.0.6 https://github.com/juce-framework/JUCE.git JUCE
 
-      - name: Configure
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" ${{ matrix.cmake_args }}
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
         run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }}
 
       - name: Build
