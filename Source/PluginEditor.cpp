@@ -165,16 +165,48 @@ void GrooveEngineRnBAudioProcessorEditor::timerCallback()
 
 void GrooveEngineRnBAudioProcessorEditor::scanPresets()
 {
-    auto exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    auto presetsDir = exeFile.getParentDirectory()
-                             .getParentDirectory()
-                             .getParentDirectory()
-                             .getParentDirectory()
-                             .getChildFile("Presets")
-                             .getChildFile("Factory");
+    // Search multiple locations for the Factory presets folder
+    juce::Array<juce::File> searchPaths;
 
-    if (!presetsDir.isDirectory())
-        presetsDir = juce::File("C:\\GrooveEngineRnB\\Presets\\Factory");
+    // 1. macOS: ~/Library/Application Support/BW BASS/Presets/Factory (install.sh target)
+    auto appSupport = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                          .getChildFile("BW BASS")
+                          .getChildFile("Presets")
+                          .getChildFile("Factory");
+    searchPaths.add(appSupport);
+
+    // 2. Windows: %APPDATA%/BW BASS/Presets/Factory (Install.bat target)
+    // (same as above on Windows — userApplicationDataDirectory maps to %APPDATA%)
+
+    // 3. Relative to executable (standalone dev builds)
+    auto exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    searchPaths.add(exeFile.getParentDirectory()
+                           .getParentDirectory()
+                           .getParentDirectory()
+                           .getParentDirectory()
+                           .getChildFile("Presets")
+                           .getChildFile("Factory"));
+
+    // 4. Windows dev fallback
+    searchPaths.add(juce::File("C:\\GrooveEngineRnB\\Presets\\Factory"));
+
+    // 5. macOS: next to the .vst3/.component bundle
+    searchPaths.add(exeFile.getParentDirectory()
+                           .getParentDirectory()
+                           .getParentDirectory()
+                           .getChildFile("Presets")
+                           .getChildFile("Factory"));
+
+    // Use the first directory that exists
+    juce::File presetsDir;
+    for (auto& path : searchPaths)
+    {
+        if (path.isDirectory())
+        {
+            presetsDir = path;
+            break;
+        }
+    }
 
     if (presetsDir.isDirectory())
     {
