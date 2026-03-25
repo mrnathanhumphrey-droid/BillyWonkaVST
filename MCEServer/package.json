@@ -1,0 +1,12 @@
+{
+  "name": "bw-bass-mce-server",
+  "version": "1.0.0",
+  "description": "MCE server bridging BW BASS VST plugin to Claude API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  }
+}

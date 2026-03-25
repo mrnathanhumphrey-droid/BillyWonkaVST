@@ -81,13 +81,37 @@ FilterTab::FilterTab(juce::AudioProcessorValueTreeState& vts) : apvts(vts)
         apvts, ParamIDs::lfoSync, lfoSyncToggle);
     addAndMakeVisible(lfoSyncToggle);
 
+    // --- Reverb ---
+    reverbOnToggle.setColour(juce::ToggleButton::textColourId, BW::Pink);
+    reverbOnAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        apvts, ParamIDs::reverbEnabled, reverbOnToggle);
+    addAndMakeVisible(reverbOnToggle);
+
+    reverbModeBox.addItem("Room", 1);
+    reverbModeBox.addItem("Plate", 2);
+    reverbModeBox.addItem("Spring", 3);
+    reverbModeBox.addItem("Hall", 4);
+    styleComboBox(reverbModeBox);
+    reverbModeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, ParamIDs::reverbMode, reverbModeBox);
+    addAndMakeVisible(reverbModeBox);
+
+    knobReverbMix.attach(apvts, ParamIDs::reverbMix);
+    knobReverbDecay.attach(apvts, ParamIDs::reverbDecay);
+    knobReverbTone.attach(apvts, ParamIDs::reverbTone);
+    addAndMakeVisible(knobReverbMix);
+    addAndMakeVisible(knobReverbDecay);
+    addAndMakeVisible(knobReverbTone);
+
     // Labels
     styleSectionLabel(filterLabel, "MOOG LADDER FILTER");
     styleSectionLabel(filterEnvLabel, "FILTER ENVELOPE");
     styleSectionLabel(lfoLabel, "LFO");
+    styleSectionLabel(reverbLabel, "BASS REVERB");
     addAndMakeVisible(filterLabel);
     addAndMakeVisible(filterEnvLabel);
     addAndMakeVisible(lfoLabel);
+    addAndMakeVisible(reverbLabel);
 }
 
 void FilterTab::paint(juce::Graphics& g)
@@ -96,18 +120,20 @@ void FilterTab::paint(juce::Graphics& g)
 
     // Section separators
     g.setColour(BW::Grey.withAlpha(0.3f));
-    int s1 = static_cast<int>(getHeight() * 0.42f);
-    int s2 = static_cast<int>(getHeight() * 0.72f);
+    int s1 = static_cast<int>(getHeight() * 0.34f);
+    int s2 = static_cast<int>(getHeight() * 0.58f);
+    int s3 = static_cast<int>(getHeight() * 0.78f);
     g.fillRect(8, s1, getWidth() - 16, 1);
     g.fillRect(8, s2, getWidth() - 16, 1);
+    g.fillRect(8, s3, getWidth() - 16, 1);
 }
 
 void FilterTab::resized()
 {
     auto bounds = getLocalBounds().reduced(8, 4);
 
-    // --- Section 1: Filter controls (top ~42%) ---
-    auto filterSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.42f));
+    // --- Section 1: Filter controls (top ~34%) ---
+    auto filterSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.34f));
     filterLabel.setBounds(filterSection.removeFromTop(16));
 
     // Slope selector top-right
@@ -125,8 +151,8 @@ void FilterTab::resized()
     knobKeyTrack.setBounds(rightCol.removeFromTop(rightCol.getHeight() / 2));
     knobFilterSat.setBounds(rightCol);
 
-    // --- Section 2: Filter envelope (~30%) ---
-    auto fEnvSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.52f));
+    // --- Section 2: Filter envelope ---
+    auto fEnvSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.37f));
     filterEnvLabel.setBounds(fEnvSection.removeFromTop(16));
 
     auto fEnvViz = fEnvSection.removeFromTop(static_cast<int>(fEnvSection.getHeight() * 0.55f));
@@ -139,17 +165,31 @@ void FilterTab::resized()
     knobFSustain.setBounds(fEnvKnobs.removeFromLeft(fKnobW));
     knobFRelease.setBounds(fEnvKnobs);
 
-    // --- Section 3: LFO (remaining) ---
-    lfoLabel.setBounds(bounds.removeFromTop(16));
+    // --- Section 3: LFO ---
+    auto lfoSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.48f));
+    lfoLabel.setBounds(lfoSection.removeFromTop(16));
 
-    auto lfoRow1 = bounds.removeFromTop(24);
+    auto lfoRow1 = lfoSection.removeFromTop(24);
     int halfW = lfoRow1.getWidth() / 2;
     lfoShapeBox.setBounds(lfoRow1.removeFromLeft(halfW).reduced(4, 0));
     lfoTargetBox.setBounds(lfoRow1.reduced(4, 0));
 
-    auto lfoRow2 = bounds;
+    auto lfoRow2 = lfoSection;
     int lfoKnobW = lfoRow2.getWidth() / 3;
     knobLFORate.setBounds(lfoRow2.removeFromLeft(lfoKnobW));
     knobLFODepth.setBounds(lfoRow2.removeFromLeft(lfoKnobW));
     lfoSyncToggle.setBounds(lfoRow2.reduced(8, 8));
+
+    // --- Section 4: Bass Reverb (remaining) ---
+    reverbLabel.setBounds(bounds.removeFromTop(16));
+
+    auto reverbTopRow = bounds.removeFromTop(24);
+    reverbOnToggle.setBounds(reverbTopRow.removeFromLeft(80).reduced(0, 2));
+    reverbModeBox.setBounds(reverbTopRow.removeFromLeft(120).reduced(4, 0));
+
+    auto reverbKnobRow = bounds;
+    int rvbKnobW = reverbKnobRow.getWidth() / 3;
+    knobReverbMix.setBounds(reverbKnobRow.removeFromLeft(rvbKnobW));
+    knobReverbDecay.setBounds(reverbKnobRow.removeFromLeft(rvbKnobW));
+    knobReverbTone.setBounds(reverbKnobRow);
 }

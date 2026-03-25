@@ -17,12 +17,10 @@ jobs:
           - os: windows-latest
             name: Win64
             cmake_generator: Ninja
-            cmake_args: ""
             artifact_name: BW_BASS_Win64
-          - os: macos-latest
+          - os: macos-14
             name: macOS
             cmake_generator: Ninja
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0"
             artifact_name: BW_BASS_macOS
 
     runs-on: ${{ matrix.os }}
@@ -31,8 +29,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
@@ -49,18 +45,50 @@ jobs:
           arch: x64
 
       - name: Clone JUCE
-        run: git clone --depth 1 --branch 8.0.6 https://github.com/juce-framework/JUCE.git JUCE
+        run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git JUCE
 
+      # ---- Configure ----
       - name: Configure (macOS)
         if: runner.os == 'macOS'
-        run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" ${{ matrix.cmake_args }}
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
-        run: cmake -B build -G "${{ matrix.cmake_generator }}" -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }}
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
+      # ---- Build ----
       - name: Build
-        run: cmake --build build --config Release -j 2
+        run: cmake --build build --config Release -j 3
+
+      # ---- macOS: ad-hoc sign + validate ----
+      - name: Sign and Validate (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # Find artifact root (Ninja single-config: no Release subdir)
+          ARTS="build/GrooveEngineRnB_artefacts"
+          if [ ! -d "$ARTS/VST3" ] && [ -d "$ARTS/Release/VST3" ]; then
+            ARTS="$ARTS/Release"
+          fi
+
+          echo "Artifact root: $ARTS"
+
+          # Ad-hoc sign all bundles (removes quarantine issues for non-notarized builds)
+          find "$ARTS" -name "*.vst3" -type d -exec codesign --force --deep --sign - {} \;
+          find "$ARTS" -name "*.component" -type d -exec codesign --force --deep --sign - {} \;
+          find "$ARTS" -name "*.app" -type d -exec codesign --force --deep --sign - {} \;
+
+          # Validate AU with auval (non-fatal — just log the result)
+          echo "=== AU Validation ==="
+          auval -v aumu Grnb Bwmx 2>&1 || echo "auval returned non-zero (may be expected without audio device)"
+
+          # List what was built
+          echo "=== Built artifacts ==="
+          find "$ARTS" -maxdepth 3 -type d \( -name "*.vst3" -o -name "*.component" -o -name "*.app" \)
 
       # ---- Windows packaging ----
       - name: Package (Windows)
@@ -73,14 +101,8 @@ jobs:
           cp build/GrooveEngineRnB_artefacts/Release/Standalone/*.exe "$DIST/Standalone/"
           cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
           cp dist/BW_BASS_v1.0.0_Win64/Install.bat "$DIST/" 2>/dev/null || true
-          cp dist/BW_BASS_v1.0.0_Win64/README.txt "$DIST/" 2>/dev/null || true
 
       # ---- macOS packaging ----
-      - name: List build artifacts (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: find build/GrooveEngineRnB_artefacts -type f | head -50
-
       - name: Package (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -88,45 +110,71 @@ jobs:
           DIST="dist/${{ matrix.artifact_name }}"
           mkdir -p "$DIST/VST3" "$DIST/AU" "$DIST/Standalone" "$DIST/Presets/Factory"
 
-          # Ninja is single-config so artifacts may be in Release/ or directly in artefacts/
           ARTS="build/GrooveEngineRnB_artefacts"
-          if [ -d "$ARTS/Release" ]; then
+          if [ ! -d "$ARTS/VST3" ] && [ -d "$ARTS/Release/VST3" ]; then
             ARTS="$ARTS/Release"
           fi
 
-          echo "Artifact root: $ARTS"
-          ls -R "$ARTS" || true
-
-          # VST3
-          find "$ARTS" -name "*.vst3" -type d | head -1 | while read vst3; do
-            echo "Copying VST3: $vst3"
+          # Copy bundles preserving structure
+          for vst3 in $(find "$ARTS" -name "*.vst3" -type d); do
             cp -R "$vst3" "$DIST/VST3/"
           done
 
-          # AU
-          find "$ARTS" -name "*.component" -type d | head -1 | while read au; do
-            echo "Copying AU: $au"
+          for au in $(find "$ARTS" -name "*.component" -type d); do
             cp -R "$au" "$DIST/AU/"
           done
 
-          # Standalone
-          find "$ARTS" -name "*.app" -type d | head -1 | while read app; do
-            echo "Copying Standalone: $app"
+          for app in $(find "$ARTS" -name "*.app" -type d); do
             cp -R "$app" "$DIST/Standalone/"
           done
 
           # Presets
           cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
 
-          # Install script and README
-          cp scripts/install_mac.sh "$DIST/install.sh"
-          chmod +x "$DIST/install.sh"
-          cp scripts/README_mac.txt "$DIST/README.txt"
+          # Install script
+          cat > "$DIST/install.sh" << 'EOF'
+          #!/bin/bash
+          set -e
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          echo "=== BW BASS v1.0.0 Installer ==="
 
-          # Verify package contents
+          # Remove quarantine from all bundles
+          xattr -cr "$SCRIPT_DIR" 2>/dev/null || true
+
+          # VST3
+          VST3_DIR="$HOME/Library/Audio/Plug-Ins/VST3"
+          mkdir -p "$VST3_DIR"
+          for vst3 in "$SCRIPT_DIR/VST3/"*.vst3; do
+            [ -d "$vst3" ] && cp -R "$vst3" "$VST3_DIR/" && echo "VST3: $(basename "$vst3") → $VST3_DIR"
+          done
+
+          # AU
+          AU_DIR="$HOME/Library/Audio/Plug-Ins/Components"
+          mkdir -p "$AU_DIR"
+          for au in "$SCRIPT_DIR/AU/"*.component; do
+            [ -d "$au" ] && cp -R "$au" "$AU_DIR/" && echo "AU: $(basename "$au") → $AU_DIR"
+          done
+
+          # Reset AU cache so hosts re-scan
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+
+          # Presets
+          PRESET_DIR="$HOME/Library/Application Support/BW BASS/Presets/Factory"
+          mkdir -p "$PRESET_DIR"
+          cp "$SCRIPT_DIR/Presets/Factory/"*.xml "$PRESET_DIR/" 2>/dev/null
+          echo "Presets → $PRESET_DIR"
+
+          echo ""
+          echo "Done! Restart your DAW and rescan plugins."
+          echo "If plugins don't appear, run: sudo xattr -cr ~/Library/Audio/Plug-Ins/"
+          EOF
+          chmod +x "$DIST/install.sh"
+
+          # Verify
           echo "=== Package contents ==="
           find "$DIST" -type f | head -30
 
+      # ---- Upload ----
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -134,11 +182,11 @@ jobs:
           path: dist/${{ matrix.artifact_name }}/
           retention-days: 30
 
-  # ---- Create release on tag push ----
+  # ---- Release (on tag push) ----
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     permissions:
       contents: write
 
@@ -148,12 +196,12 @@ jobs:
         with:
           path: artifacts/
 
+      # Use ditto + zip on macOS to preserve resource forks and bundle structure
       - name: Zip artifacts
         run: |
-          cd artifacts
-          for dir in */; do
-            name="${dir%/}"
-            zip -r "../${name}.zip" "$dir"
+          for dir in artifacts/*/; do
+            name="$(basename "$dir")"
+            ditto -c -k --sequesterRsrc --keepParent "$dir" "${name}.zip"
           done
 
       - name: Create GitHub Release

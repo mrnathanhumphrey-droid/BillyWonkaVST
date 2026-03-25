@@ -261,6 +261,11 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             // =====================================================
             outputStage.setDrive(smoothDrive.tick());
             outputStage.setMasterVolume(smoothMasterVol.tick());
+
+            // Route per-sample modulation to the active driver
+            outputStage.setDriverEnvelopeGain(ampEnvLevel);
+            outputStage.setDriverLFOGain(lfoValue);
+
             outputSample = outputStage.process(shapedOutput);
         }
         else
@@ -364,6 +369,12 @@ void SynthEngine::setTapeSaturation(float sat)   { outputStage.setTapeSaturation
 void SynthEngine::setTapeBump(float bump)        { outputStage.setTapeBump(bump); }
 void SynthEngine::setTapeMix(float mix)          { outputStage.setTapeMix(mix); }
 
+// --- Drive Mode ---
+void SynthEngine::setDriveMode(int modeIndex)
+{
+    outputStage.setDriveMode(static_cast<DriveMode>(std::max(0, std::min(4, modeIndex))));
+}
+
 // --- Compressor ---
 void SynthEngine::setCompThreshold(float dBFS)         { outputStage.setCompThreshold(dBFS); }
 void SynthEngine::setCompTransientAttack(float ms)     { outputStage.setCompTransientAttack(ms); }
@@ -372,17 +383,27 @@ void SynthEngine::setCompOpticalRatio(float ratio)     { outputStage.setCompOpti
 void SynthEngine::setCompParallelMix(float mix)        { outputStage.setCompParallelMix(mix); }
 void SynthEngine::setCompOutputGain(float dB)          { outputStage.setCompOutputGain(dB); }
 
-// --- Harmonic Reverb ---
-void SynthEngine::setReverbCrossover(float hz)         { outputStage.setReverbCrossover(hz); }
-void SynthEngine::setReverbDecay(float amount)         { outputStage.setReverbDecay(amount); }
-void SynthEngine::setReverbPreDelay(float ms)          { outputStage.setReverbPreDelay(ms); }
-void SynthEngine::setReverbWet(float wet)              { outputStage.setReverbWet(wet); }
+// --- Bass Reverb ---
 void SynthEngine::setReverbEnabled(bool on)            { outputStage.setReverbEnabled(on); }
+void SynthEngine::setReverbMode(int modeIndex)         { outputStage.setReverbMode(modeIndex); }
+void SynthEngine::setReverbMix(float mix)              { outputStage.setReverbMix(mix); }
+void SynthEngine::setReverbDecay(float decay)          { outputStage.setReverbDecay(decay); }
+void SynthEngine::setReverbTone(float tone)            { outputStage.setReverbTone(tone); }
+
+// --- BillyWonka Bass EQ ---
+void SynthEngine::setEQEnabled(bool on)          { outputStage.setEQEnabled(on); }
+void SynthEngine::setHPFFreq(float hz)           { outputStage.setHPFFreq(hz); }
+void SynthEngine::setSubFreq(float hz)           { outputStage.setSubFreq(hz); }
+void SynthEngine::setSubGain(float dB)           { outputStage.setSubGain(dB); }
+void SynthEngine::setFundFreq(float hz)          { outputStage.setFundFreq(hz); }
+void SynthEngine::setFundGain(float dB)          { outputStage.setFundGain(dB); }
+void SynthEngine::setFundQ(float q)              { outputStage.setFundQ(q); }
+void SynthEngine::setMudFreq(float hz)           { outputStage.setMudFreq(hz); }
+void SynthEngine::setMudGain(float dB)           { outputStage.setMudGain(dB); }
+void SynthEngine::setMudQ(float q)               { outputStage.setMudQ(q); }
 
 // --- Output ---
 void SynthEngine::setDrive(float amount)         { smoothDrive.setTarget(amount); }
-void SynthEngine::setBassShelf(float dB)         { outputStage.setBassShelf(dB); }
-void SynthEngine::setPresenceShelf(float dB)     { outputStage.setPresenceShelf(dB); }
 void SynthEngine::setStereoWidth(float w)        { outputStage.setStereoWidth(w); }
 void SynthEngine::setMasterVolume(float l)       { smoothMasterVol.setTarget(l); }
 
@@ -395,6 +416,7 @@ void SynthEngine::setBassMode(BassMode mode)
     if (mode != currentMode)
     {
         currentMode = mode;
+        outputStage.setBassMode(static_cast<int>(mode));
         applyBassMode(mode);
     }
 }
@@ -445,6 +467,17 @@ void SynthEngine::applyBassMode(BassMode mode)
 
             setFeedbackAmount(0.0f);
             setDrive(0.05f);
+
+            // Driver: Pluck — envelope-gated CP3, no bump
+            setTapeMix(0.6f);
+            setTapeDrive(0.3f);
+            setTapeBump(0.0f);
+
+            // EQ: Pluck — tight HPF, mild sub boost, gentle fundamental
+            setHPFFreq(35.0f);
+            setSubFreq(60.0f);   setSubGain(2.0f);
+            setFundFreq(90.0f);  setFundGain(1.0f);  setFundQ(1.2f);
+            setMudFreq(300.0f);  setMudGain(-2.0f);  setMudQ(1.0f);
             break;
         }
 
@@ -491,6 +524,17 @@ void SynthEngine::applyBassMode(BassMode mode)
 
             setFeedbackAmount(0.0f);
             setDrive(0.1f);
+
+            // Driver: 808 — soft even-order poly, note-tracked bump
+            setTapeBump(0.8f);
+            setTapeMix(0.8f);
+            setTapeDrive(0.4f);
+
+            // EQ: 808 — deep HPF, strong sub boost, punchy fundamental, aggressive mud cut
+            setHPFFreq(25.0f);
+            setSubFreq(55.0f);   setSubGain(4.0f);
+            setFundFreq(80.0f);  setFundGain(3.0f);  setFundQ(2.0f);
+            setMudFreq(250.0f);  setMudGain(-4.0f);  setMudQ(1.5f);
             break;
         }
 
@@ -547,6 +591,17 @@ void SynthEngine::applyBassMode(BassMode mode)
 
             setFeedbackAmount(0.0f);
             setDrive(0.08f);
+
+            // Driver: Reese — symmetric fold, no JA, no bump
+            setTapeMix(0.0f);
+            setTapeBump(0.0f);
+            setTapeDrive(0.15f);
+
+            // EQ: Reese — moderate HPF, mild sub, warm fundamental, clean mud cut
+            setHPFFreq(40.0f);
+            setSubFreq(60.0f);   setSubGain(1.0f);
+            setFundFreq(120.0f); setFundGain(2.0f);  setFundQ(1.8f);
+            setMudFreq(350.0f);  setMudGain(-3.0f);  setMudQ(1.0f);
             break;
         }
     }

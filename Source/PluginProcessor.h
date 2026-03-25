@@ -5,6 +5,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include "PluginParameters.h"
 #include "SynthEngine.h"
+#include "MidiInjector.h"
 
 /**
  * PluginProcessor — JUCE AudioProcessor for Groove Engine RnB.
@@ -54,6 +55,12 @@ public:
     /** Public access to keyboard state for the on-screen MIDI keyboard. */
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
 
+    /** Public access to MIDI injector for AI-generated note sequences. */
+    MidiInjector& getMidiInjector() { return midiInjector; }
+
+    /** Stop AI playback and send all-notes-off (MIDI panic). */
+    void stopAIPlayback();
+
 private:
     /** Create the APVTS parameter layout with all synth parameters. */
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -69,6 +76,18 @@ private:
 
     // On-screen keyboard state (shared with editor)
     juce::MidiKeyboardState keyboardState;
+
+    // AI MIDI injection (lock-free SPSC queue: message thread → audio thread)
+    MidiInjector midiInjector;
+    double currentSampleRate = 44100.0;
+    int injectorSampleClock = 0;    // Running sample counter for sequence timing
+    bool injectorPlaying = false;
+
+    // Staging buffer: events popped from FIFO, sorted by time, consumed per-block
+    static constexpr int MAX_STAGED = 256;
+    MidiInjector::MidiEvent stagedEvents[MAX_STAGED] = {};
+    int stagedCount = 0;
+    int stagedIndex = 0;  // Next event to process
 
     // Smoothed parameter values (JUCE SmoothedValue for zipper-free changes)
     juce::SmoothedValue<float> smoothedCutoff;

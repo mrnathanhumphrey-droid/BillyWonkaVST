@@ -36,24 +36,18 @@ SettingsTab::SettingsTab(juce::AudioProcessorValueTreeState& vts) : apvts(vts)
     addAndMakeVisible(knobCompGain);
 
     // --- Reverb ---
+    knobRevMix.attach(apvts, ParamIDs::reverbMix);
     knobRevDecay.attach(apvts, ParamIDs::reverbDecay);
-    knobRevWet.attach(apvts, ParamIDs::reverbWet);
-    knobRevPreDelay.attach(apvts, ParamIDs::reverbPreDelay);
-    knobRevXover.attach(apvts, ParamIDs::reverbCrossover);
+    knobRevTone.attach(apvts, ParamIDs::reverbTone);
     reverbAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         apvts, ParamIDs::reverbEnabled, reverbToggle);
+    addAndMakeVisible(knobRevMix);
     addAndMakeVisible(knobRevDecay);
-    addAndMakeVisible(knobRevWet);
-    addAndMakeVisible(knobRevPreDelay);
-    addAndMakeVisible(knobRevXover);
+    addAndMakeVisible(knobRevTone);
     addAndMakeVisible(reverbToggle);
 
     // --- Output ---
-    knobBassShelf.attach(apvts, ParamIDs::bassShelf);
-    knobPresShelf.attach(apvts, ParamIDs::presenceShelf);
     knobStereoWidth.attach(apvts, ParamIDs::stereoWidth);
-    addAndMakeVisible(knobBassShelf);
-    addAndMakeVisible(knobPresShelf);
     addAndMakeVisible(knobStereoWidth);
 }
 
@@ -136,9 +130,6 @@ void SettingsTab::resized()
     // Output
     {
         auto area = cardContent(cardOutput);
-        int kw = area.getWidth() / 3;
-        knobBassShelf.setBounds(area.removeFromLeft(kw));
-        knobPresShelf.setBounds(area.removeFromLeft(kw));
         knobStereoWidth.setBounds(area);
     }
 
@@ -159,10 +150,9 @@ void SettingsTab::resized()
         auto toggleRow = area.removeFromTop(24);
         reverbToggle.setBounds(toggleRow.removeFromLeft(100));
 
-        int kw = area.getWidth() / 4;
+        int kw = area.getWidth() / 3;
+        knobRevMix.setBounds(area.removeFromLeft(kw));
         knobRevDecay.setBounds(area.removeFromLeft(kw));
-        knobRevWet.setBounds(area.removeFromLeft(kw));
-        knobRevPreDelay.setBounds(area.removeFromLeft(kw));
-        knobRevXover.setBounds(area);
+        knobRevTone.setBounds(area);
     }
 }

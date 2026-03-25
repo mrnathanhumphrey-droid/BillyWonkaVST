@@ -41,16 +41,13 @@ private:
     BWKnob knobCompGain    { "GAIN",   "dB" };
 
     // Reverb
-    BWKnob knobRevDecay    { "DECAY",  ""   };
-    BWKnob knobRevWet      { "WET",    ""   };
-    BWKnob knobRevPreDelay { "PREDLY", "ms" };
-    BWKnob knobRevXover    { "XOVER",  "Hz" };
+    BWKnob knobRevMix      { "MIX",   "%"  };
+    BWKnob knobRevDecay    { "DECAY", ""   };
+    BWKnob knobRevTone     { "TONE",  ""   };
     juce::ToggleButton reverbToggle { "Reverb" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbAttach;
 
     // Output
-    BWKnob knobBassShelf   { "BASS",   "dB" };
-    BWKnob knobPresShelf   { "PRES",   "dB" };
     BWKnob knobStereoWidth { "WIDTH",  ""   };
 
     // Card bounds (for painting)

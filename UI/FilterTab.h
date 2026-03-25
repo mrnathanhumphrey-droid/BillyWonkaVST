@@ -46,8 +46,17 @@ private:
     juce::ToggleButton lfoSyncToggle { "SYNC" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> lfoSyncAttach;
 
+    // Reverb section
+    juce::ToggleButton reverbOnToggle { "REVERB" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> reverbOnAttach;
+    juce::ComboBox reverbModeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> reverbModeAttach;
+    BWKnob knobReverbMix   { "MIX",   "%" };
+    BWKnob knobReverbDecay { "DECAY", ""  };
+    BWKnob knobReverbTone  { "TONE",  ""  };
+
     // Labels
-    juce::Label filterLabel, filterEnvLabel, lfoLabel;
+    juce::Label filterLabel, filterEnvLabel, lfoLabel, reverbLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FilterTab)
 };

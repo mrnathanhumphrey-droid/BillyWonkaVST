@@ -127,11 +127,14 @@ public:
     void setLFOSync(bool sync);
     void setTempoBPM(double bpm);
 
-    // Tape Saturation
+    // Per-mode driver (routed through active IBassDriver variant)
     void setTapeDrive(float drive);
     void setTapeSaturation(float sat);
     void setTapeBump(float bump);
     void setTapeMix(float mix);
+
+    // Drive mode selection
+    void setDriveMode(int modeIndex);  // 0=Auto, 1=Tape, 2=SubHarmonic, 3=Transient, 4=Symmetric
 
     // Compressor
     void setCompThreshold(float dBFS);
@@ -141,17 +144,24 @@ public:
     void setCompParallelMix(float mix);
     void setCompOutputGain(float dB);
 
-    // Harmonic Reverb
-    void setReverbCrossover(float hz);
-    void setReverbDecay(float amount);
-    void setReverbPreDelay(float ms);
-    void setReverbWet(float wet);
+    // Bass Reverb
     void setReverbEnabled(bool on);
+    void setReverbMode(int modeIndex);
+    void setReverbMix(float mix);
+    void setReverbDecay(float decay);
+    void setReverbTone(float tone);
+
+    // BillyWonka Bass EQ
+    void setEQEnabled(bool on);
+    void setHPFFreq(float hz);
+    void setSubFreq(float hz);     void setSubGain(float dB);
+    void setFundFreq(float hz);    void setFundGain(float dB);
+    void setFundQ(float q);
+    void setMudFreq(float hz);     void setMudGain(float dB);
+    void setMudQ(float q);
 
     // Output
     void setDrive(float amount);
-    void setBassShelf(float dB);
-    void setPresenceShelf(float dB);
     void setStereoWidth(float width);
     void setMasterVolume(float level);
 

@@ -44,9 +44,23 @@
   <PARAM id="lfo_target" value="0"/>
   <PARAM id="lfo_sync" value="0"/>
   <PARAM id="drive_amount" value="0.05"/>
-  <PARAM id="bass_shelf" value="5"/>
-  <PARAM id="presence_shelf" value="-4"/>
   <PARAM id="stereo_width" value="0.4"/>
   <PARAM id="master_volume" value="0.75"/>
   <PARAM id="bass_mode" value="2"/>
+  <PARAM id="drive_mode" value="0"/>
+  <PARAM id="eq_enabled" value="1"/>
+  <PARAM id="eq_hpf_freq" value="35"/>
+  <PARAM id="eq_sub_freq" value="55"/>
+  <PARAM id="eq_sub_gain" value="4"/>
+  <PARAM id="eq_fund_freq" value="85"/>
+  <PARAM id="eq_fund_gain" value="1"/>
+  <PARAM id="eq_fund_q" value="1.8"/>
+  <PARAM id="eq_mud_freq" value="280"/>
+  <PARAM id="eq_mud_gain" value="-8"/>
+  <PARAM id="eq_mud_q" value="1.4"/>
+  <PARAM id="reverbEnabled" value="1"/>
+  <PARAM id="reverbMode" value="2"/>
+  <PARAM id="reverbMix" value="0.18"/>
+  <PARAM id="reverbDecay" value="0.55"/>
+  <PARAM id="reverbTone" value="0.25"/>
 </GrooveEngineRnBState>

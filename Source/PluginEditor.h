@@ -8,6 +8,7 @@
 #include "FilterTab.h"
 #include "SettingsTab.h"
 #include "AIAssistTab.h"
+#include "MCEClient.h"
 
 /**
  * PluginEditor — BW BASS main editor window.
@@ -46,6 +47,9 @@ private:
 
     // MIDI keyboard at bottom
     juce::MidiKeyboardComponent keyboardComponent;
+
+    // MCE Client (AI integration)
+    MCEClient mceClient;
 
     // Preset management
     juce::StringArray presetNames;

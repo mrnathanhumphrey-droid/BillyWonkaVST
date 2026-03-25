@@ -93,8 +93,8 @@ void HarmonicReverb::updateCrossoverCoefficients()
 
 void HarmonicReverb::updateCombFeedback()
 {
-    // Map decay (0-1) to comb feedback (0.50-0.84)
-    combFeedback = 0.50f + decayAmount * 0.34f;
+    // Map decay (0-1) to comb feedback (0.475-0.798) — 5% shorter tail
+    combFeedback = 0.475f + decayAmount * 0.323f;
     for (int i = 0; i < 4; ++i)
         combs[i].feedback = combFeedback;
 }
@@ -105,7 +105,7 @@ void HarmonicReverb::updateCombFeedback()
 
 float HarmonicReverb::processSample(float input)
 {
-    if (!enabled)
+    if (!enabled || wetLevel < 0.001f)
         return input;
 
     // =========================================================================

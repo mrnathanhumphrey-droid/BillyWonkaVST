@@ -68,16 +68,29 @@ namespace ParamIDs
     inline constexpr const char* lfoTarget       = "lfo_target";
     inline constexpr const char* lfoSync         = "lfo_sync";
 
-    // Tape Saturation
+    // Drive Mode
+    inline constexpr const char* driveMode       = "drive_mode";
+
+    // Tape Saturation / Driver params
     inline constexpr const char* tapeDrive       = "tape_drive";
     inline constexpr const char* tapeSaturation  = "tape_saturation";
     inline constexpr const char* tapeBump        = "tape_bump";
     inline constexpr const char* tapeMix         = "tape_mix";
 
+    // BillyWonka Bass EQ
+    inline constexpr const char* eqEnabled       = "eq_enabled";
+    inline constexpr const char* eqHPFFreq       = "eq_hpf_freq";
+    inline constexpr const char* eqSubFreq       = "eq_sub_freq";
+    inline constexpr const char* eqSubGain       = "eq_sub_gain";
+    inline constexpr const char* eqFundFreq      = "eq_fund_freq";
+    inline constexpr const char* eqFundGain      = "eq_fund_gain";
+    inline constexpr const char* eqFundQ         = "eq_fund_q";
+    inline constexpr const char* eqMudFreq       = "eq_mud_freq";
+    inline constexpr const char* eqMudGain       = "eq_mud_gain";
+    inline constexpr const char* eqMudQ          = "eq_mud_q";
+
     // Output Stage
     inline constexpr const char* driveAmount     = "drive_amount";
-    inline constexpr const char* bassShelf       = "bass_shelf";
-    inline constexpr const char* presenceShelf   = "presence_shelf";
     inline constexpr const char* stereoWidth     = "stereo_width";
     inline constexpr const char* masterVolume    = "master_volume";
 
@@ -89,12 +102,12 @@ namespace ParamIDs
     inline constexpr const char* compParallelMix = "compParallelMix";
     inline constexpr const char* compOutputGain  = "compOutputGain";
 
-    // Harmonic Reverb
-    inline constexpr const char* reverbCrossover = "reverbCrossover";
-    inline constexpr const char* reverbDecay     = "reverbDecay";
-    inline constexpr const char* reverbPreDelay  = "reverbPreDelay";
-    inline constexpr const char* reverbWet       = "reverbWet";
+    // Bass Reverb
     inline constexpr const char* reverbEnabled   = "reverbEnabled";
+    inline constexpr const char* reverbMode      = "reverbMode";
+    inline constexpr const char* reverbMix       = "reverbMix";
+    inline constexpr const char* reverbDecay     = "reverbDecay";
+    inline constexpr const char* reverbTone      = "reverbTone";
 
     // Mode
     inline constexpr const char* bassMode        = "bass_mode";

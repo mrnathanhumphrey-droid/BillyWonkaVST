@@ -168,7 +168,12 @@ GrooveEngineRnBAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID(ParamIDs::lfoSync, 1), "LFO Sync", false));
 
-    // --- Tape Saturation ---
+    // --- Drive Mode ---
+    juce::StringArray driveModeChoices { "Auto", "Tape", "Sub Harmonic", "Transient", "Symmetric" };
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID(ParamIDs::driveMode, 1), "Drive Mode", driveModeChoices, 0));
+
+    // --- Tape Saturation / Driver ---
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::tapeDrive, 1), "Tape Drive",
         juce::NormalisableRange<float>(0.0f, 1.0f), 0.3f));
@@ -186,12 +191,36 @@ GrooveEngineRnBAudioProcessor::createParameterLayout()
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::driveAmount, 1), "Drive",
         juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+    // --- BillyWonka Bass EQ ---
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID(ParamIDs::eqEnabled, 1), "EQ On", true));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID(ParamIDs::bassShelf, 1), "Bass Shelf",
-        juce::NormalisableRange<float>(-12.0f, 12.0f), 0.0f));
+        juce::ParameterID(ParamIDs::eqHPFFreq, 1), "HPF Freq",
+        juce::NormalisableRange<float>(20.0f, 80.0f, 0.0f, 0.5f), 30.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID(ParamIDs::presenceShelf, 1), "Presence Shelf",
-        juce::NormalisableRange<float>(-6.0f, 6.0f), 0.0f));
+        juce::ParameterID(ParamIDs::eqSubFreq, 1), "Sub Freq",
+        juce::NormalisableRange<float>(30.0f, 120.0f, 0.0f, 0.5f), 60.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqSubGain, 1), "Sub Gain",
+        juce::NormalisableRange<float>(-12.0f, 12.0f), 3.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqFundFreq, 1), "Fund Freq",
+        juce::NormalisableRange<float>(60.0f, 250.0f, 0.0f, 0.5f), 100.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqFundGain, 1), "Fund Gain",
+        juce::NormalisableRange<float>(-12.0f, 12.0f), 2.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqFundQ, 1), "Fund Q",
+        juce::NormalisableRange<float>(0.5f, 4.0f), 1.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqMudFreq, 1), "Mud Freq",
+        juce::NormalisableRange<float>(150.0f, 600.0f, 0.0f, 0.5f), 280.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqMudGain, 1), "Mud Gain",
+        juce::NormalisableRange<float>(-12.0f, 12.0f), -3.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID(ParamIDs::eqMudQ, 1), "Mud Q",
+        juce::NormalisableRange<float>(0.5f, 3.0f), 1.2f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::stereoWidth, 1), "Stereo Width",
         juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
@@ -219,21 +248,21 @@ GrooveEngineRnBAudioProcessor::createParameterLayout()
         juce::ParameterID(ParamIDs::compOutputGain, 1), "Comp Output Gain",
         juce::NormalisableRange<float>(-6.0f, 12.0f), 3.0f));
 
-    // --- Harmonic Reverb ---
+    // --- Bass Reverb ---
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID(ParamIDs::reverbEnabled, 1), "Reverb On", false));
+    juce::StringArray reverbModeChoices { "Room", "Plate", "Spring", "Hall" };
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID(ParamIDs::reverbMode, 1), "Reverb Mode", reverbModeChoices, 0));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID(ParamIDs::reverbCrossover, 1), "Reverb Crossover",
-        juce::NormalisableRange<float>(80.0f, 400.0f), 200.0f));
+        juce::ParameterID(ParamIDs::reverbMix, 1), "Reverb Mix",
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.25f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::reverbDecay, 1), "Reverb Decay",
-        juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+        juce::NormalisableRange<float>(0.1f, 1.0f), 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID(ParamIDs::reverbPreDelay, 1), "Reverb Pre-Delay",
-        juce::NormalisableRange<float>(0.0f, 30.0f), 8.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID(ParamIDs::reverbWet, 1), "Reverb Wet",
-        juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID(ParamIDs::reverbEnabled, 1), "Reverb Enabled", true));
+        juce::ParameterID(ParamIDs::reverbTone, 1), "Reverb Tone",
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));
 
     // --- Bass Mode ---
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -249,6 +278,7 @@ GrooveEngineRnBAudioProcessor::createParameterLayout()
 void GrooveEngineRnBAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     synthEngine.prepare(sampleRate, samplesPerBlock);
+    currentSampleRate = sampleRate;
 
     smoothedCutoff.reset(sampleRate, 0.01);   // 10ms smoothing
     smoothedResonance.reset(sampleRate, 0.01);
@@ -261,6 +291,20 @@ void GrooveEngineRnBAudioProcessor::prepareToPlay(double sampleRate, int samples
 void GrooveEngineRnBAudioProcessor::releaseResources()
 {
     synthEngine.reset();
+}
+
+void GrooveEngineRnBAudioProcessor::stopAIPlayback()
+{
+    // Kill staged events so audio thread stops consuming
+    injectorPlaying = false;
+    stagedIndex = stagedCount;
+    injectorSampleClock = 0;
+    midiInjector.clear();
+    midiInjector.endSequence();
+
+    // Send note-off for all 128 notes to kill any hanging sound
+    for (int n = 0; n < 128; ++n)
+        synthEngine.handleNoteOff(n);
 }
 
 bool GrooveEngineRnBAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -289,6 +333,67 @@ void GrooveEngineRnBAudioProcessor::processBlock(juce::AudioBuffer<float>& buffe
 
     // Inject MIDI from on-screen keyboard into the buffer
     keyboardState.processNextMidiBuffer(midiMessages, 0, buffer.getNumSamples(), true);
+
+    // --- Inject AI-generated MIDI from MidiInjector ---
+    {
+        int blockSamples = buffer.getNumSamples();
+
+        // Check if a new sequence just started — drain FIFO into staging buffer
+        if (midiInjector.isPlaying() && !injectorPlaying)
+        {
+            injectorPlaying = true;
+            injectorSampleClock = 0;
+            stagedCount = 0;
+            stagedIndex = 0;
+
+            MidiInjector::MidiEvent evt;
+            while (stagedCount < MAX_STAGED && midiInjector.pop(evt))
+                stagedEvents[stagedCount++] = evt;
+        }
+
+        // Process staged events whose time falls within this block
+        if (injectorPlaying)
+        {
+            int blockStartSample = injectorSampleClock;
+            int blockEndSample = injectorSampleClock + blockSamples;
+
+            while (stagedIndex < stagedCount)
+            {
+                auto& evt = stagedEvents[stagedIndex];
+                int eventSample = static_cast<int>(
+                    (static_cast<double>(evt.deltaMs) / 1000.0) * currentSampleRate);
+
+                if (eventSample >= blockEndSample)
+                    break;  // This event is in a future block — stop here
+
+                int offsetInBlock = eventSample - blockStartSample;
+                if (offsetInBlock < 0) offsetInBlock = 0;
+                if (offsetInBlock >= blockSamples) offsetInBlock = blockSamples - 1;
+
+                if (evt.velocity > 0)
+                    midiMessages.addEvent(
+                        juce::MidiMessage::noteOn(1, static_cast<int>(evt.note),
+                                                   static_cast<juce::uint8>(evt.velocity)),
+                        offsetInBlock);
+                else
+                    midiMessages.addEvent(
+                        juce::MidiMessage::noteOff(1, static_cast<int>(evt.note)),
+                        offsetInBlock);
+
+                ++stagedIndex;
+            }
+
+            injectorSampleClock += blockSamples;
+
+            // End playback when all staged events have been consumed
+            if (stagedIndex >= stagedCount)
+            {
+                injectorPlaying = false;
+                injectorSampleClock = 0;
+                midiInjector.endSequence();
+            }
+        }
+    }
 
     // --- Parse MIDI ---
     for (const auto metadata : midiMessages)
@@ -422,7 +527,10 @@ void GrooveEngineRnBAudioProcessor::updateEngineParameters()
     synthEngine.setLFOTarget(getChoice(ParamIDs::lfoTarget));
     synthEngine.setLFOSync(getBool(ParamIDs::lfoSync));
 
-    // --- Tape Saturation ---
+    // --- Drive Mode ---
+    synthEngine.setDriveMode(getChoice(ParamIDs::driveMode));
+
+    // --- Tape Saturation / Driver ---
     synthEngine.setTapeDrive(getFloat(ParamIDs::tapeDrive));
     synthEngine.setTapeSaturation(getFloat(ParamIDs::tapeSaturation));
     synthEngine.setTapeBump(getFloat(ParamIDs::tapeBump));
@@ -430,8 +538,17 @@ void GrooveEngineRnBAudioProcessor::updateEngineParameters()
 
     // --- Output ---
     synthEngine.setDrive(getFloat(ParamIDs::driveAmount));
-    synthEngine.setBassShelf(getFloat(ParamIDs::bassShelf));
-    synthEngine.setPresenceShelf(getFloat(ParamIDs::presenceShelf));
+    // --- BillyWonka Bass EQ ---
+    synthEngine.setEQEnabled(getBool(ParamIDs::eqEnabled));
+    synthEngine.setHPFFreq(getFloat(ParamIDs::eqHPFFreq));
+    synthEngine.setSubFreq(getFloat(ParamIDs::eqSubFreq));
+    synthEngine.setSubGain(getFloat(ParamIDs::eqSubGain));
+    synthEngine.setFundFreq(getFloat(ParamIDs::eqFundFreq));
+    synthEngine.setFundGain(getFloat(ParamIDs::eqFundGain));
+    synthEngine.setFundQ(getFloat(ParamIDs::eqFundQ));
+    synthEngine.setMudFreq(getFloat(ParamIDs::eqMudFreq));
+    synthEngine.setMudGain(getFloat(ParamIDs::eqMudGain));
+    synthEngine.setMudQ(getFloat(ParamIDs::eqMudQ));
     synthEngine.setStereoWidth(getFloat(ParamIDs::stereoWidth));
     synthEngine.setMasterVolume(getFloat(ParamIDs::masterVolume));
 
@@ -443,12 +560,12 @@ void GrooveEngineRnBAudioProcessor::updateEngineParameters()
     synthEngine.setCompParallelMix(getFloat(ParamIDs::compParallelMix));
     synthEngine.setCompOutputGain(getFloat(ParamIDs::compOutputGain));
 
-    // --- Harmonic Reverb ---
-    synthEngine.setReverbCrossover(getFloat(ParamIDs::reverbCrossover));
-    synthEngine.setReverbDecay(getFloat(ParamIDs::reverbDecay));
-    synthEngine.setReverbPreDelay(getFloat(ParamIDs::reverbPreDelay));
-    synthEngine.setReverbWet(getFloat(ParamIDs::reverbWet));
+    // --- Bass Reverb ---
     synthEngine.setReverbEnabled(getBool(ParamIDs::reverbEnabled));
+    synthEngine.setReverbMode(getChoice(ParamIDs::reverbMode));
+    synthEngine.setReverbMix(getFloat(ParamIDs::reverbMix));
+    synthEngine.setReverbDecay(getFloat(ParamIDs::reverbDecay));
+    synthEngine.setReverbTone(getFloat(ParamIDs::reverbTone));
 }
 
 // =============================================================================

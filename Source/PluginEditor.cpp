@@ -8,7 +8,8 @@ GrooveEngineRnBAudioProcessorEditor::GrooveEngineRnBAudioProcessorEditor(
       filterTab(p.getAPVTS()),
       settingsTab(p.getAPVTS()),
       aiAssistTab(p.getAPVTS()),
-      keyboardComponent(p.getKeyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard)
+      keyboardComponent(p.getKeyboardState(), juce::MidiKeyboardComponent::horizontalKeyboard),
+      mceClient(p.getAPVTS(), p.getMidiInjector())
 {
     setLookAndFeel(&bwLookAndFeel);
 
@@ -57,6 +58,53 @@ GrooveEngineRnBAudioProcessorEditor::GrooveEngineRnBAudioProcessorEditor(
     keyboardComponent.setColour(juce::MidiKeyboardComponent::blackNoteColourId, BW::Black);
     keyboardComponent.setColour(juce::MidiKeyboardComponent::keySeparatorLineColourId, BW::Grey);
     addAndMakeVisible(keyboardComponent);
+
+    // --- MCE Client ---
+    mceClient.onMessageReceived = [this](const juce::String& sender, const juce::String& text)
+    {
+        aiAssistTab.addMessage(sender, text);
+    };
+    mceClient.onConnectionStatusChanged = [this](bool conn, int lat)
+    {
+        aiAssistTab.setConnectionStatus(conn, lat);
+    };
+    mceClient.onParamSuggestion = [this](const juce::StringPairArray& params)
+    {
+        auto& apvts = processorRef.getAPVTS();
+        for (auto& key : params.getAllKeys())
+        {
+            if (auto* param = apvts.getParameter(key))
+            {
+                float rawValue = params.getValue(key, "0").getFloatValue();
+                float normalized = param->getNormalisableRange().convertTo0to1(rawValue);
+                param->setValueNotifyingHost(normalized);
+            }
+        }
+        aiAssistTab.addMessage("System", "Applied " + juce::String(params.size()) + " parameter changes.");
+    };
+
+    // Wire AIAssistTab callbacks to MCEClient
+    aiAssistTab.onSendMessage = [this](const juce::String& msg)
+    {
+        mceClient.sendChatMessage(msg);
+    };
+    aiAssistTab.onApplySuggestion = [this]()
+    {
+        mceClient.requestApplySuggestion();
+    };
+    aiAssistTab.onPlayRequest = [this](const juce::String& desc)
+    {
+        mceClient.requestPlaySequence(desc);
+    };
+    aiAssistTab.onStopRequest = [this]()
+    {
+        processorRef.stopAIPlayback();
+    };
+
+    // Wire reconnect button in AIAssistTab
+    // The reconnectBtn onClick needs to be set from here since MCEClient is owned by editor
+    // We'll trigger connect via a lambda after the URL field changes
+    mceClient.connect();
 
     // --- Presets ---
     scanPresets();

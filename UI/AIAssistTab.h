@@ -6,8 +6,7 @@
 /**
  * AIAssistTab — Tab 4: Claude AI integration via MCE server.
  *
- * Split view: left = chat, right = context panel + quick prompts.
- * This is the UI scaffold. MCEClient will be wired in separately.
+ * Split view: left = chat, right = context panel + quick prompts + play config.
  */
 class AIAssistTab : public juce::Component
 {
@@ -29,8 +28,16 @@ public:
     /** Callback when "Apply Suggestion" is clicked. */
     std::function<void()> onApplySuggestion;
 
+    /** Callback when play is requested (via button or chat trigger). */
+    std::function<void(const juce::String&)> onPlayRequest;
+
+    /** Callback when stop is pressed (MIDI panic — kill all notes). */
+    std::function<void()> onStopRequest;
+
 private:
     void sendCurrentMessage();
+    juce::String buildPlayPrompt() const;
+    bool isPlayTrigger(const juce::String& text) const;
 
     juce::AudioProcessorValueTreeState& apvts;
 
@@ -57,6 +64,16 @@ private:
         "Explain what my current filter settings do",
         "Generate a new preset from scratch"
     };
+
+    // --- Play configuration ---
+    juce::Label playConfigLabel;
+    juce::ComboBox keyBox;
+    juce::ComboBox styleBox;
+    juce::ComboBox timeSigBox;
+    juce::ComboBox barsBox;
+    juce::ComboBox bpmBox;
+    juce::TextButton playBtn { "PLAY" };
+    juce::TextButton stopBtn { "STOP" };
 
     // Apply suggestion
     juce::TextButton applyBtn { "Apply Suggestion" };

@@ -7,17 +7,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(JUCE)
 
 juce_add_plugin(GrooveEngineRnB
-    COMPANY_NAME "GrooveEngine"
+    COMPANY_NAME "BillyWonkaMusic"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
-    PLUGIN_MANUFACTURER_CODE Grvn
-    PLUGIN_CODE GRNB
+    PLUGIN_MANUFACTURER_CODE Bwmx
+    PLUGIN_CODE Grnb
     FORMATS VST3 AU Standalone
-    PRODUCT_NAME "Groove Engine RnB"
+    PRODUCT_NAME "BW BASS"
+    BUNDLE_ID "com.billywonkamusic.bwbass"
+    AU_MAIN_TYPE "aumu"
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "BW BASS needs audio input access for monitoring."
+    DESCRIPTION "Moog-inspired monophonic bass synthesizer for R&B production"
 )
 
 target_sources(GrooveEngineRnB
@@ -36,8 +41,11 @@ target_sources(GrooveEngineRnB
         DSP/MixerSection.cpp
         DSP/OutputStage.cpp
         DSP/MoogTapeSaturator.cpp
+        DSP/SubHarmonicExciter.cpp
+        DSP/TransientWaveshaper.cpp
+        DSP/SymmetricFolder.cpp
         DSP/RnBCompressor.cpp
-        DSP/HarmonicReverb.cpp
+        DSP/BassReverb.cpp
         DSP/NoteManager.cpp
         DSP/SynthEngine.cpp
         UI/BWLookAndFeel.cpp
@@ -48,6 +56,7 @@ target_sources(GrooveEngineRnB
         UI/FilterTab.cpp
         UI/SettingsTab.cpp
         UI/AIAssistTab.cpp
+        UI/MCEClient.cpp
 )
 
 target_include_directories(GrooveEngineRnB
@@ -75,12 +84,11 @@ target_link_libraries(GrooveEngineRnB
         juce::juce_recommended_warning_flags
 )
 
-# Remove /MP from ALL targets to prevent heap exhaustion on low-memory systems.
-# JUCE's juce_recommended_warning_flags interface library propagates /MP to every
-# target that links it (including _VST3, _Standalone sub-targets).
-get_target_property(_juce_warn_opts juce_recommended_warning_flags INTERFACE_COMPILE_OPTIONS)
-if(_juce_warn_opts)
-    list(FILTER _juce_warn_opts EXCLUDE REGEX "/MP")
-    set_target_properties(juce_recommended_warning_flags PROPERTIES INTERFACE_COMPILE_OPTIONS "${_juce_warn_opts}")
+# Windows: Remove /MP to prevent heap exhaustion on low-memory systems
+if(MSVC)
+    get_target_property(_juce_warn_opts juce_recommended_warning_flags INTERFACE_COMPILE_OPTIONS)
+    if(_juce_warn_opts)
+        list(FILTER _juce_warn_opts EXCLUDE REGEX "/MP")
+        set_target_properties(juce_recommended_warning_flags PROPERTIES INTERFACE_COMPILE_OPTIONS "${_juce_warn_opts}")
+    endif()
 endif()
-
