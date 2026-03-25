@@ -176,16 +176,16 @@ GrooveEngineRnBAudioProcessor::createParameterLayout()
     // --- Tape Saturation / Driver ---
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::tapeDrive, 1), "Tape Drive",
-        juce::NormalisableRange<float>(0.0f, 1.0f), 0.3f));
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::tapeSaturation, 1), "Tape Saturation",
-        juce::NormalisableRange<float>(0.0f, 1.0f), 0.4f));
+        juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::tapeBump, 1), "Tape Bump",
         juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID(ParamIDs::tapeMix, 1), "Tape Mix",
-        juce::NormalisableRange<float>(0.0f, 1.0f), 0.8f));
+        juce::NormalisableRange<float>(0.0f, 1.0f), 1.0f));
 
     // --- Output ---
     params.push_back(std::make_unique<juce::AudioParameterFloat>(

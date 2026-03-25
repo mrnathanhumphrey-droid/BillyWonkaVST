@@ -93,7 +93,7 @@ float SubHarmonicExciter::processSample(float input)
     float bumpVal = bumpSm.tick();
     float mixVal = mixSm.tick();
 
-    polyDrive = 0.5f + driveVal * 3.5f;
+    polyDrive = 1.0f + driveVal * 6.0f;
     ja_inputGain = polyDrive;
     ja_a = 3.0f - satVal * 2.5f;
     ja_a = std::max(0.5f, ja_a);

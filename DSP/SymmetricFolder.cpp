@@ -29,7 +29,7 @@ float SymmetricFolder::processSample(float input)
 
     // Base drive + LFO modulation of drive depth
     // LFO adds ±50% of drive range when at extremes
-    baseDrive = 0.5f + driveVal * 3.5f;
+    baseDrive = 1.0f + driveVal * 6.0f;
     float modulatedDrive = baseDrive * (1.0f + lfoValue * 0.5f);
 
     // Fold threshold from saturation: lower sat = higher threshold (gentler)

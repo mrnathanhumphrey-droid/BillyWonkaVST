@@ -62,7 +62,7 @@ float TransientWaveshaper::processSample(float input)
     float mixVal = mixSm.tick();
 
     // Envelope-gated drive: cpDrive scales with amp envelope
-    cpDrive = (0.5f + driveVal * 3.5f) * envelopeLevel;
+    cpDrive = (1.0f + driveVal * 6.0f) * envelopeLevel;
     ja_inputGain = cpDrive;
     ja_a = 3.0f - satVal * 2.5f;
     ja_a = std::max(0.5f, ja_a);
