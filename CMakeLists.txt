@@ -19,7 +19,6 @@ juce_add_plugin(GrooveEngineRnB
     FORMATS VST3 AU Standalone
     PRODUCT_NAME "BW BASS"
     BUNDLE_ID "com.billywonkamusic.bwbass"
-    AU_MAIN_TYPE "aumu"
     MICROPHONE_PERMISSION_ENABLED TRUE
     MICROPHONE_PERMISSION_TEXT "BW BASS needs audio input access for monitoring."
     DESCRIPTION "Moog-inspired monophonic bass synthesizer for R&B production"
