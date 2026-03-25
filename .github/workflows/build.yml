@@ -97,8 +97,8 @@ jobs:
         run: |
           DIST="dist/${{ matrix.artifact_name }}"
           mkdir -p "$DIST/VST3" "$DIST/Standalone" "$DIST/Presets/Factory"
-          cp -r build/GrooveEngineRnB_artefacts/Release/VST3/*.vst3 "$DIST/VST3/"
-          cp build/GrooveEngineRnB_artefacts/Release/Standalone/*.exe "$DIST/Standalone/"
+          find build/GrooveEngineRnB_artefacts/Release/VST3 -name "*.vst3" -type d -exec cp -r {} "$DIST/VST3/" \;
+          find build/GrooveEngineRnB_artefacts/Release/Standalone -name "*.exe" -exec cp {} "$DIST/Standalone/" \;
           cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
           cp dist/BW_BASS_v1.0.0_Win64/Install.bat "$DIST/" 2>/dev/null || true
 
@@ -115,18 +115,10 @@ jobs:
             ARTS="$ARTS/Release"
           fi
 
-          # Copy bundles preserving structure
-          for vst3 in $(find "$ARTS" -name "*.vst3" -type d); do
-            cp -R "$vst3" "$DIST/VST3/"
-          done
-
-          for au in $(find "$ARTS" -name "*.component" -type d); do
-            cp -R "$au" "$DIST/AU/"
-          done
-
-          for app in $(find "$ARTS" -name "*.app" -type d); do
-            cp -R "$app" "$DIST/Standalone/"
-          done
+          # Copy bundles preserving structure (handle spaces in names)
+          find "$ARTS" -name "*.vst3" -type d -maxdepth 3 -exec cp -R {} "$DIST/VST3/" \;
+          find "$ARTS" -name "*.component" -type d -maxdepth 3 -exec cp -R {} "$DIST/AU/" \;
+          find "$ARTS" -name "*.app" -type d -maxdepth 3 -exec cp -R {} "$DIST/Standalone/" \;
 
           # Presets
           cp Presets/Factory/*.xml "$DIST/Presets/Factory/"
