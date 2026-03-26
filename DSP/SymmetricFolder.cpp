@@ -48,6 +48,7 @@ float SymmetricFolder::processSample(float input)
     float normalizedX = x / foldThreshold;
     float folded = TWO_OVER_PI * std::asin(std::sin(PI_OVER_TWO * normalizedX));
     folded *= foldThreshold;  // Scale back to original amplitude range
+    folded *= 0.5f;          // -6 dB gain compensation to match other drivers
 
     return dry + mixVal * (folded - dry);
 }
