@@ -77,6 +77,14 @@ jobs:
 
           echo "Artifact root: $ARTS"
 
+          # Fix moduleinfo.json — JUCE's vst3_helper generates trailing commas
+          # which is invalid JSON and causes hosts to reject the VST3 at scan time
+          find "$ARTS" -name "moduleinfo.json" | while IFS= read -r jsonfile; do
+            echo "Fixing trailing commas in: $jsonfile"
+            sed -i.bak -E 's/,([[:space:]]*[}\]])/\1/g' "$jsonfile"
+            rm -f "${jsonfile}.bak"
+          done
+
           # Ad-hoc sign all bundles (removes quarantine issues for non-notarized builds)
           find "$ARTS" -name "*.vst3" -type d -exec codesign --force --deep --sign - {} \;
           find "$ARTS" -name "*.component" -type d -exec codesign --force --deep --sign - {} \;
@@ -89,6 +97,17 @@ jobs:
           # List what was built
           echo "=== Built artifacts ==="
           find "$ARTS" -maxdepth 3 -type d \( -name "*.vst3" -o -name "*.component" -o -name "*.app" \)
+
+      # ---- Windows: fix moduleinfo.json trailing commas ----
+      - name: Fix moduleinfo.json (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          find build/GrooveEngineRnB_artefacts -name "moduleinfo.json" | while IFS= read -r jsonfile; do
+            echo "Fixing trailing commas in: $jsonfile"
+            sed -i.bak -E 's/,([[:space:]]*[}\]])/\1/g' "$jsonfile"
+            rm -f "${jsonfile}.bak"
+          done
 
       # ---- Windows packaging ----
       - name: Package (Windows)
