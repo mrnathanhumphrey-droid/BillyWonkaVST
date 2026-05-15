@@ -441,6 +441,64 @@ void GrooveEngineRnBAudioProcessor::processBlock(juce::AudioBuffer<float>& buffe
     }
 }
 
+void GrooveEngineRnBAudioProcessor::writeBassModeDefaultsToAPVTS(int bassMode)
+{
+    auto setChoice = [this](const char* paramId, int index) {
+        if (auto* p = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter(paramId)))
+            *p = index;
+    };
+    auto setFloat = [this](const char* paramId, float value) {
+        if (auto* p = dynamic_cast<juce::AudioParameterFloat*>(apvts.getParameter(paramId)))
+            *p = value;
+    };
+
+    switch (bassMode)
+    {
+        case 0: // Pluck — pulse + square, fast pluck-shaped envelope but with
+                // enough sustain that the body is audible (sustain=0 gave only
+                // the 0-150ms transient, hence the "click only" symptom).
+            setChoice(ParamIDs::osc1Waveform, 5); // Pulse
+            setChoice(ParamIDs::osc2Waveform, 4); // Square
+            setFloat(ParamIDs::envAAttack,  0.001f);
+            setFloat(ParamIDs::envADecay,   0.18f);
+            setFloat(ParamIDs::envASustain, 0.45f);
+            setFloat(ParamIDs::envARelease, 0.15f);
+            setFloat(ParamIDs::envFAttack,  0.001f);
+            setFloat(ParamIDs::envFDecay,   0.20f);
+            setFloat(ParamIDs::envFSustain, 0.30f);
+            setFloat(ParamIDs::envFRelease, 0.15f);
+            setFloat(ParamIDs::filterEnvAmount, 0.6f);
+            break;
+
+        case 1: // 808 — sine, long sustained body
+            setChoice(ParamIDs::osc1Waveform, 0); // Sine
+            setFloat(ParamIDs::envAAttack,  0.001f);
+            setFloat(ParamIDs::envADecay,   0.5f);
+            setFloat(ParamIDs::envASustain, 0.85f);
+            setFloat(ParamIDs::envARelease, 0.25f);
+            setFloat(ParamIDs::envFAttack,  0.001f);
+            setFloat(ParamIDs::envFDecay,   0.5f);
+            setFloat(ParamIDs::envFSustain, 0.35f);
+            setFloat(ParamIDs::envFRelease, 0.20f);
+            setFloat(ParamIDs::filterEnvAmount, 0.15f);
+            break;
+
+        case 2: // Reese — detuned saws, long sustained body
+            setChoice(ParamIDs::osc1Waveform, 2); // Sawtooth
+            setChoice(ParamIDs::osc2Waveform, 2); // Sawtooth
+            setFloat(ParamIDs::envAAttack,  0.005f);
+            setFloat(ParamIDs::envADecay,   0.6f);
+            setFloat(ParamIDs::envASustain, 0.80f);
+            setFloat(ParamIDs::envARelease, 0.30f);
+            setFloat(ParamIDs::envFAttack,  0.01f);
+            setFloat(ParamIDs::envFDecay,   0.8f);
+            setFloat(ParamIDs::envFSustain, 0.55f);
+            setFloat(ParamIDs::envFRelease, 0.35f);
+            setFloat(ParamIDs::filterEnvAmount, 0.3f);
+            break;
+    }
+}
+
 // =============================================================================
 // Parameter Update — pull from APVTS, push to SynthEngine
 // =============================================================================
@@ -459,7 +517,17 @@ void GrooveEngineRnBAudioProcessor::updateEngineParameters()
     };
 
     // --- Bass Mode (check first — it may override other params) ---
+    // When the mode changes, write the mode's preset envelope + waveform values
+    // into APVTS so they actually persist (across DAW project saves and the
+    // next read-back). Without this, stale APVTS values from a previous Pluck
+    // session leave env_a_sustain = 0 even after switching to 808, killing the
+    // sustain on every held note.
     int mode = getChoice(ParamIDs::bassMode);
+    if (mode != prevBassMode)
+    {
+        writeBassModeDefaultsToAPVTS(mode);
+        prevBassMode = mode;
+    }
     synthEngine.setBassMode(static_cast<SynthEngine::BassMode>(mode));
 
     // --- OSC1 ---

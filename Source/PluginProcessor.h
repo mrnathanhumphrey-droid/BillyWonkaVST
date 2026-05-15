@@ -68,6 +68,17 @@ private:
     /** Pull all current parameter values from APVTS and push to SynthEngine. */
     void updateEngineParameters();
 
+    /**
+     * When bass mode changes, write the mode's preset envelope + osc-waveform
+     * values into APVTS so they persist (across DAW project saves and standalone
+     * state reloads) and survive the next updateEngineParameters read-back.
+     * Without this, applyBassMode's settings get clobbered by stale APVTS values
+     * the next block, leaving e.g. envASustain=0 (from an old Pluck preset)
+     * even when the user has switched to 808.
+     */
+    void writeBassModeDefaultsToAPVTS(int bassMode);
+    int prevBassMode = -1;
+
     // The synthesis engine (pure C++, no JUCE dependency)
     SynthEngine synthEngine;
 

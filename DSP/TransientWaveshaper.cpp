@@ -61,8 +61,15 @@ float TransientWaveshaper::processSample(float input)
     float satVal = satSm.tick();
     float mixVal = mixSm.tick();
 
-    // Envelope-gated drive: cpDrive scales with amp envelope
-    cpDrive = (1.0f + driveVal * 6.0f) * envelopeLevel;
+    // Envelope-modulated drive amount: at attack peak (envelopeLevel = 1) the
+    // signal gets the full driveVal * 6 saturation; during sustain / release
+    // (envelopeLevel → 0) saturation drops out but cpDrive floors at 1 so the
+    // dry signal still passes through stage 1's soft-clip in its linear region.
+    // Previous formula `(1 + driveVal*6) * envelopeLevel` zeroed cpDrive when
+    // the env hit 0, multiplying the input by 0 and silencing the entire
+    // sustain of any pluck-shaped envelope (only the transient was audible).
+    float drvAmount = driveVal * envelopeLevel;
+    cpDrive = 1.0f + drvAmount * 6.0f;
     ja_inputGain = cpDrive;
     ja_a = 3.0f - satVal * 2.5f;
     ja_a = std::max(0.5f, ja_a);
