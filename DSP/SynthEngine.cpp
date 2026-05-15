@@ -89,6 +89,15 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         // Random-phase note-ons multiply a non-zero osc value by an
         // attacking VCA, producing a hard pop on the first samples.
         oscillatorBank.resetPhases();
+
+        // Reset the Moog ladder filter state. Between notes the render
+        // loop is gated by `noteActive`, which means the filter freezes
+        // with its stage[] / stageZ1[] / feedbackDelay holding the tail
+        // of the previous note. When a new note arrives, those stale
+        // values get convolved with the new input and ring for several
+        // samples — that's the "mechanical pop" remaining after the
+        // phase reset + softer attacks landed in v3.0.10.
+        filter.reset();
     }
 
     // Always trigger pitch envelope on every new note (for 808 punch / pluck snap)
