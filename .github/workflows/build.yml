@@ -55,6 +55,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
           -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          -DBUILD_AU=OFF
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
