@@ -454,23 +454,22 @@ void GrooveEngineRnBAudioProcessor::writeBassModeDefaultsToAPVTS(int bassMode)
 
     switch (bassMode)
     {
-        case 0: // Pluck — pulse + square, fast pluck-shaped envelope but with
-                // enough sustain that the body is audible. Attacks bumped to
-                // ~3-5 ms: 1 ms attack on a 2 kHz baseCutoff + 6000 Hz env
-                // modulation slammed the filter open in 44 samples, which
-                // produced an audible pop on every note-on. 3-5 ms keeps the
-                // pluck snappy without the filter-slam click.
+        case 0: // Pluck — pulse + square, fast pluck-shaped envelope.
+                // tapeMix at 1.0 ran the signal 100% through the wet driver,
+                // which loses ~6 dB through tanh saturation → "no tone".
+                // 0.5 keeps half the dry punch and adds character on top.
             setChoice(ParamIDs::osc1Waveform, 5); // Pulse
             setChoice(ParamIDs::osc2Waveform, 4); // Square
             setFloat(ParamIDs::envAAttack,  0.003f);
             setFloat(ParamIDs::envADecay,   0.18f);
-            setFloat(ParamIDs::envASustain, 0.55f);   // a touch more body
+            setFloat(ParamIDs::envASustain, 0.65f);   // more body
             setFloat(ParamIDs::envARelease, 0.15f);
             setFloat(ParamIDs::envFAttack,  0.005f);
             setFloat(ParamIDs::envFDecay,   0.20f);
             setFloat(ParamIDs::envFSustain, 0.30f);
             setFloat(ParamIDs::envFRelease, 0.15f);
-            setFloat(ParamIDs::filterEnvAmount, 0.50f); // 0.6 -> 0.5: less filter slam
+            setFloat(ParamIDs::filterEnvAmount, 0.50f);
+            setFloat(ParamIDs::tapeMix,     0.50f);   // dry-dominant mix
             break;
 
         case 1: // 808 — sine, long sustained body

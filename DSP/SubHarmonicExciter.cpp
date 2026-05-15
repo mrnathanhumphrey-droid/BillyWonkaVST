@@ -27,8 +27,18 @@ void SubHarmonicExciter::setMix(float v)         { mixSm.set(std::max(0.0f, std:
 
 void SubHarmonicExciter::triggerOnset()
 {
-    M_prev *= 0.1f;
-    H_prev *= 0.1f;
+    // Full state clear on note-on. Same rationale as TransientWaveshaper's
+    // triggerOnset(): the render loop is gated by noteActive, so any state
+    // left in pre/de-emphasis filters or the head-bump biquad freezes mid-
+    // decay between notes and rings audibly when the next note's first
+    // sample arrives. The previous 10% JA bleed left preX/preY/deX/deY and
+    // the entire bumpX/bumpY chain stale — visible as a "mechanical pop".
+    M_prev = 0.0f;
+    H_prev = 0.0f;
+    preX1 = preY1 = 0.0f;
+    deX1 = deY1 = 0.0f;
+    bumpX1 = bumpX2 = 0.0f;
+    bumpY1 = bumpY2 = 0.0f;
     onsetSamples = ONSET_RAMP_SAMPLES;
 }
 
@@ -118,21 +128,19 @@ float SubHarmonicExciter::processSample(float input)
     if (onsetSamples > 0) --onsetSamples;
 
     float H = preOut * ja_inputGain * onsetRamp;
-    float dH = H - H_prev;
-    // Same JA-hysteresis click fix as TransientWaveshaper: replace hard
-    // sign(dH) with a smooth tanh and floor the denominator magnitude so
-    // dM stays continuous across zero crossings.
-    float delta = std::tanh(dH * 2000.0f);
-    float Man = ja_Ms * std::tanh(H / ja_a);
-    float denomRaw = ja_k * delta;
-    float denom = (denomRaw >= 0.0f) ? std::max(denomRaw, 0.01f)
-                                     : std::min(denomRaw, -0.01f);
-    float dM = (Man - M_prev) / denom;
-    float M = M_prev + dM * ja_dt;
-    M = std::max(-ja_Ms * 1.5f, std::min(ja_Ms * 1.5f, M));
-    M_prev = M;
+
+    // Same fix as TransientWaveshaper v3.0.12: the JA integration here was
+    // also `M += dM * ja_dt`, which (per the Jiles-Atherton model) should be
+    // `+ dM * dH` — the result is a first-order LP with a 200 ms time
+    // constant at ja_k=0.2, so M lagged Man across every note. With Stage 4's
+    // head bump still contributing audible 808 character, the symptom was
+    // less catastrophic than Pluck (where the wet path was silenced) but
+    // still left enough state-ringing on note-on to read as a "mechanical
+    // pop". Collapse to the anhysteretic curve directly:
+    //   stage3 = tanh(H / a)
+    float stage3 = std::tanh(H / ja_a);
     H_prev = H;
-    float stage3 = M / ja_Ms;
+    M_prev = stage3 * ja_Ms;
 
     // Stage 4: De-emphasis + head bump
     float deOut = deB0 * stage3 + deB1 * deX1 - deA1 * deY1;

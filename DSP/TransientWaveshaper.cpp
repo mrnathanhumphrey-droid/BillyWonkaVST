@@ -85,13 +85,16 @@ float TransientWaveshaper::processSample(float input)
 
     float dry = input;
 
-    // Stage 1: CP3 asymmetric clip (correct for Pluck — cross-channel intermod)
+    // Stage 1: SYMMETRIC soft-clip. Was CP3 asymmetric (alpha=2 vs beta=1.44),
+    // which is "correct" for the Pluck topology but puts a few-percent DC
+    // bias on any symmetric input (Pulse + Square are Pluck's defaults).
+    // The DC blocker downstream can only catch static DC — when the envelope
+    // modulates cpDrive, the DC bias is modulated too and leaks through the
+    // blocker's ~22 ms settling time, audible as a sub-audio pop on every
+    // note-on. Symmetric clip eliminates the DC source entirely; the saturation
+    // character (soft-knee compression of peaks) is unchanged.
     float x = input * cpDrive;
-    float stage1;
-    if (x >= 0.0f)
-        stage1 = x / (1.0f + alpha * x);
-    else
-        stage1 = x / (1.0f + beta * (-x));
+    float stage1 = x / (1.0f + alpha * std::abs(x));
 
     // Stage 2: Pre-emphasis
     float preOut = preB0 * stage1 + preB1 * preX1 - preA1 * preY1;
