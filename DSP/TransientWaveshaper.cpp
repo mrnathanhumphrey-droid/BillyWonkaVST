@@ -16,6 +16,7 @@ void TransientWaveshaper::reset()
     preX1 = preY1 = 0.0f;
     M_prev = H_prev = 0.0f;
     deX1 = deY1 = 0.0f;
+    dcX1 = dcY1 = 0.0f;
     envelopeLevel = 0.0f;
 }
 
@@ -26,8 +27,16 @@ void TransientWaveshaper::setEnvelopeGain(float e) { envelopeLevel = std::max(0.
 
 void TransientWaveshaper::triggerOnset()
 {
-    M_prev *= 0.1f;
-    H_prev *= 0.1f;
+    // Full state clear on note-on. The previous design bled JA only by 10%
+    // and left pre/de-emphasis filter state entirely untouched — when the
+    // render loop is gated by `noteActive`, that state freezes mid-decay
+    // and the next note's first sample triggers a ringing transient out of
+    // the stale filter coefficients. Click was audible as a "mechanical pop".
+    M_prev = 0.0f;
+    H_prev = 0.0f;
+    preX1 = preY1 = 0.0f;
+    deX1 = deY1 = 0.0f;
+    dcX1 = dcY1 = 0.0f;
     onsetSamples = ONSET_RAMP_SAMPLES;
 }
 
@@ -96,28 +105,42 @@ float TransientWaveshaper::processSample(float input)
     if (onsetSamples > 0) --onsetSamples;
 
     float H = preOut * ja_inputGain * onsetRamp;
-    float dH = H - H_prev;
-    // Hard sign(dH) flips at every zero crossing → discontinuity in dM →
-    // audible per-half-cycle click train (perceived as "feedback ringing")
-    // when fed any sustained tone. Smooth-sign with a magnitude floor on the
-    // denominator keeps the hysteresis loop intact for real direction changes
-    // but suppresses the click-spray near turning points.
-    float delta = std::tanh(dH * 2000.0f);
-    float Man = ja_Ms * std::tanh(H / ja_a);
-    float denomRaw = ja_k * delta;
-    float denom = (denomRaw >= 0.0f) ? std::max(denomRaw, 0.02f)
-                                     : std::min(denomRaw, -0.02f);
-    float dM = (Man - M_prev) / denom;
-    float M = M_prev + dM * ja_dt;
-    M = std::max(-ja_Ms * 1.5f, std::min(ja_Ms * 1.5f, M));
-    M_prev = M;
+
+    // Stage 3 was a Jiles-Atherton hysteresis integrator:
+    //     M[n] = M[n-1] + (Man - M[n-1]) / (k*delta) * ja_dt
+    // The JA model integrates dM/dH, not dM/dt — the discretization should
+    // be ` + dM * dH` (change in H), not ` + dM * dt` (change in time).
+    // With the dt form and k=0.5, every sample's increment is ~4.5e-5 of
+    // the gap to Man, which is a first-order LP with a 500 ms time constant.
+    // Result: M effectively never reached Man within a bass note, the wet
+    // path stayed near zero, and with mix=1 the driver was *silencing* the
+    // signal instead of saturating it. (That's why Pluck sounded "mostly
+    // click" — the click was bleed-through and there was no body to speak of.)
+    // Switching to dM*dH instead produces an audible buzz on every Pulse-wave
+    // edge (M slams to ±1.5 per edge). Neither integration form is right at
+    // audio rate, so we collapse stage 3 to the anhysteretic curve directly:
+    //   stage3 = Man / Ms = tanh(H / a)
+    // That's the same tonal target as the JA loop's steady state, smooth
+    // through zero crossings and edges, no integration pathology.
+    float stage3 = std::tanh(H / ja_a);
+    // Keep H_prev / M_prev maintained for downstream callers that may read
+    // them via the IBassDriver interface (currently none, but cheap to do).
     H_prev = H;
-    float stage3 = M / ja_Ms;
+    M_prev = stage3 * ja_Ms;
 
     // Stage 4: De-emphasis only (no head bump for Pluck)
     float deOut = deB0 * stage3 + deB1 * deX1 - deA1 * deY1;
     deX1 = stage3;
     deY1 = deOut;
 
-    return dry + mixVal * (deOut - dry);
+    // DC blocker — strips the DC offset put on the signal by the asymmetric
+    // CP3 clip (stage 1). Without this, a symmetric input (Pulse/Square)
+    // exits the driver with a few-percent DC bias that becomes audible as
+    // a sub-audio pop when the amp VCA opens it from silence.
+    // Standard 1st-order DC-blocker: y[n] = x[n] - x[n-1] + R*y[n-1]
+    float wet = deOut - dcX1 + DC_BLOCK_R * dcY1;
+    dcX1 = deOut;
+    dcY1 = wet;
+
+    return dry + mixVal * (wet - dry);
 }
