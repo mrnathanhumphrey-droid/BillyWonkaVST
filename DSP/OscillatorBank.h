@@ -21,6 +21,11 @@ public:
     void prepare(double sampleRate, int blockSize);
     void reset();
 
+    /** Reset only the three oscillator phases (not noise generator state).
+     *  Call on every non-legato note-on so the new note starts at phase 0
+     *  on every osc — eliminates the random-phase-at-onset pop. */
+    void resetPhases();
+
     /**
      * Render one sample from all three oscillators at the given base frequency.
      * Returns raw oscillator mix (before external mixing stage).

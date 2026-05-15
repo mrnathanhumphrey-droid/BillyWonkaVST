@@ -21,6 +21,15 @@ void OscillatorBank::reset()
     lastOsc3Value = 0.0f;
 }
 
+void OscillatorBank::resetPhases()
+{
+    // Phase-only reset — leaves noise generator state alone so the noise
+    // doesn't audibly pulse with every note-on.
+    osc1.reset();
+    osc2.reset();
+    osc3.reset();
+}
+
 double OscillatorBank::rangeToMultiplier(int rangeIndex)
 {
     // 32' = lowest (0.25x of 8'), 16' = 0.5x, 8' = 1x, 4' = 2x, 2' = 4x

@@ -455,28 +455,31 @@ void GrooveEngineRnBAudioProcessor::writeBassModeDefaultsToAPVTS(int bassMode)
     switch (bassMode)
     {
         case 0: // Pluck — pulse + square, fast pluck-shaped envelope but with
-                // enough sustain that the body is audible (sustain=0 gave only
-                // the 0-150ms transient, hence the "click only" symptom).
+                // enough sustain that the body is audible. Attacks bumped to
+                // ~3-5 ms: 1 ms attack on a 2 kHz baseCutoff + 6000 Hz env
+                // modulation slammed the filter open in 44 samples, which
+                // produced an audible pop on every note-on. 3-5 ms keeps the
+                // pluck snappy without the filter-slam click.
             setChoice(ParamIDs::osc1Waveform, 5); // Pulse
             setChoice(ParamIDs::osc2Waveform, 4); // Square
-            setFloat(ParamIDs::envAAttack,  0.001f);
+            setFloat(ParamIDs::envAAttack,  0.003f);
             setFloat(ParamIDs::envADecay,   0.18f);
-            setFloat(ParamIDs::envASustain, 0.45f);
+            setFloat(ParamIDs::envASustain, 0.55f);   // a touch more body
             setFloat(ParamIDs::envARelease, 0.15f);
-            setFloat(ParamIDs::envFAttack,  0.001f);
+            setFloat(ParamIDs::envFAttack,  0.005f);
             setFloat(ParamIDs::envFDecay,   0.20f);
             setFloat(ParamIDs::envFSustain, 0.30f);
             setFloat(ParamIDs::envFRelease, 0.15f);
-            setFloat(ParamIDs::filterEnvAmount, 0.6f);
+            setFloat(ParamIDs::filterEnvAmount, 0.50f); // 0.6 -> 0.5: less filter slam
             break;
 
         case 1: // 808 — sine, long sustained body
             setChoice(ParamIDs::osc1Waveform, 0); // Sine
-            setFloat(ParamIDs::envAAttack,  0.001f);
+            setFloat(ParamIDs::envAAttack,  0.005f);
             setFloat(ParamIDs::envADecay,   0.5f);
             setFloat(ParamIDs::envASustain, 0.85f);
             setFloat(ParamIDs::envARelease, 0.25f);
-            setFloat(ParamIDs::envFAttack,  0.001f);
+            setFloat(ParamIDs::envFAttack,  0.008f);
             setFloat(ParamIDs::envFDecay,   0.5f);
             setFloat(ParamIDs::envFSustain, 0.35f);
             setFloat(ParamIDs::envFRelease, 0.20f);

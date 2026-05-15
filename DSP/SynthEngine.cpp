@@ -84,6 +84,11 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         // Trigger envelopes on non-legato notes
         filterEnvelope.noteOn(velocity);
         ampEnvelope.noteOn(velocity);
+
+        // Reset oscillator phases so each note starts at phase 0.
+        // Random-phase note-ons multiply a non-zero osc value by an
+        // attacking VCA, producing a hard pop on the first samples.
+        oscillatorBank.resetPhases();
     }
 
     // Always trigger pitch envelope on every new note (for 808 punch / pluck snap)
