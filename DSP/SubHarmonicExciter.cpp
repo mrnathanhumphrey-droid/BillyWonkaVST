@@ -119,9 +119,14 @@ float SubHarmonicExciter::processSample(float input)
 
     float H = preOut * ja_inputGain * onsetRamp;
     float dH = H - H_prev;
-    float delta = (dH >= 0.0f) ? 1.0f : -1.0f;
+    // Same JA-hysteresis click fix as TransientWaveshaper: replace hard
+    // sign(dH) with a smooth tanh and floor the denominator magnitude so
+    // dM stays continuous across zero crossings.
+    float delta = std::tanh(dH * 2000.0f);
     float Man = ja_Ms * std::tanh(H / ja_a);
-    float denom = ja_k * delta + 1.0e-6f;
+    float denomRaw = ja_k * delta;
+    float denom = (denomRaw >= 0.0f) ? std::max(denomRaw, 0.01f)
+                                     : std::min(denomRaw, -0.01f);
     float dM = (Man - M_prev) / denom;
     float M = M_prev + dM * ja_dt;
     M = std::max(-ja_Ms * 1.5f, std::min(ja_Ms * 1.5f, M));

@@ -1,6 +1,7 @@
 #include "HeaderBar.h"
+#include "PluginParameters.h"
 
-HeaderBar::HeaderBar()
+HeaderBar::HeaderBar(juce::AudioProcessorValueTreeState& vts) : apvts(vts)
 {
     // --- Title ---
     titleLabel.setText("BW BASS", juce::dontSendNotification);
@@ -39,7 +40,7 @@ HeaderBar::HeaderBar()
     addAndMakeVisible(initBtn);
 
     // --- Tab buttons ---
-    const juce::String tabNames[] = { "MAIN", "FILTER", "SETTINGS", "AI ASSIST" };
+    const juce::String tabNames[] = { "MAIN", "FILTER", "EFFECTS", "AI ASSIST" };
     for (int i = 0; i < 4; ++i)
     {
         tabButtons[i].setButtonText(tabNames[i]);
@@ -57,6 +58,28 @@ HeaderBar::HeaderBar()
         addAndMakeVisible(tabButtons[i]);
     }
     tabButtons[0].setToggleState(true, juce::dontSendNotification);
+
+    // --- Driver (bass-mode) selector ---
+    driverLabel.setText("DRIVER", juce::dontSendNotification);
+    driverLabel.setFont(juce::Font(9.0f, juce::Font::bold).withExtraKerningFactor(0.18f));
+    driverLabel.setColour(juce::Label::textColourId, BW::Pink);
+    driverLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(driverLabel);
+
+    driverBox.addItem("PLUCK", 1);
+    driverBox.addItem("808",   2);
+    driverBox.addItem("REESE", 3);
+    driverBox.setColour(juce::ComboBox::backgroundColourId, BW::Deep);
+    driverBox.setColour(juce::ComboBox::textColourId, BW::White);
+    driverBox.setColour(juce::ComboBox::outlineColourId, BW::Pink);
+    driverBox.setJustificationType(juce::Justification::centred);
+    driverAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, ParamIDs::bassMode, driverBox);
+    addAndMakeVisible(driverBox);
+
+    // --- Level knob (compact) ---
+    levelKnob.attach(apvts, ParamIDs::masterVolume);
+    addAndMakeVisible(levelKnob);
 }
 
 void HeaderBar::setPresetName(const juce::String& name)
@@ -78,7 +101,7 @@ void HeaderBar::setMeterLevels(float leftDB, float rightDB)
 {
     meterL = leftDB;
     meterR = rightDB;
-    repaint(); // Only the meter area ideally, but fine for now
+    repaint();
 }
 
 void HeaderBar::paint(juce::Graphics& g)
@@ -103,6 +126,14 @@ void HeaderBar::paint(juce::Graphics& g)
         }
     }
 
+    // Bolder box around the DRIVER selector to designate it as a driver
+    if (!driverBoxBounds.isEmpty())
+    {
+        auto framed = driverBoxBounds.expanded(4);
+        g.setColour(BW::Pink);
+        g.drawRoundedRectangle(framed.toFloat(), 4.0f, 2.0f);
+    }
+
     // --- Output meter (right side) ---
     auto meterArea = getLocalBounds().removeFromRight(30).reduced(4, 8);
     int meterW = 4;
@@ -115,12 +146,10 @@ void HeaderBar::paint(juce::Graphics& g)
         g.setColour(BW::Grey.withAlpha(0.3f));
         g.fillRoundedRectangle(area.toFloat(), 1.5f);
 
-        // Map dB to 0-1 (range -60 to 0 dB)
         float level = juce::jlimit(0.0f, 1.0f, (dB + 60.0f) / 60.0f);
         int filledH = static_cast<int>(area.getHeight() * level);
         auto filledArea = area.withTop(area.getBottom() - filledH);
 
-        // Gradient: green → pink near top
         g.setColour(level > 0.85f ? BW::Pink : BW::PurpleGlow);
         g.fillRoundedRectangle(filledArea.toFloat(), 1.5f);
     };
@@ -132,21 +161,27 @@ void HeaderBar::paint(juce::Graphics& g)
 void HeaderBar::resized()
 {
     auto bounds = getLocalBounds();
-    auto topRow = bounds.removeFromTop(28).reduced(8, 2);
-    auto tabRow = bounds.reduced(8, 0);
+
+    // Reserve meter strip on the far right
+    auto meterStrip = bounds.removeFromRight(30);
+    juce::ignoreUnused(meterStrip);
+
+    // Reserve right column for LEVEL knob — top-right, under SAVE
+    auto levelColumn = bounds.removeFromRight(64);
 
     // Top row: title | preset nav | save/init
+    auto topRow = bounds.removeFromTop(28).reduced(8, 2);
+    // Tab row + DRIVER selector
+    auto tabRow  = bounds.reduced(8, 0);
+
     titleLabel.setBounds(topRow.removeFromLeft(80));
     topRow.removeFromLeft(8);
 
-    // Save/Init on far right
+    // Save/Init on far right of top row
     initBtn.setBounds(topRow.removeFromRight(40));
     topRow.removeFromRight(4);
     saveBtn.setBounds(topRow.removeFromRight(46));
     topRow.removeFromRight(12);
-
-    // Meter space (already painted manually on the right)
-    topRow.removeFromRight(30);
 
     // Preset nav in remaining centre
     prevBtn.setBounds(topRow.removeFromLeft(24));
@@ -155,7 +190,17 @@ void HeaderBar::resized()
     topRow.removeFromRight(2);
     presetNameBtn.setBounds(topRow);
 
-    // Tab row
+    // LEVEL knob occupies the full right-side column (top-right under SAVE,
+    // spanning the rest of the header height). BWKnob renders its own
+    // label/knob/value internally.
+    levelKnob.setBounds(levelColumn.reduced(4, 4));
+
+    // Tab row: 4 tab buttons on the left, DRIVER selector on the right
+    auto driverArea = tabRow.removeFromRight(110).reduced(8, 2);
+    driverLabel.setBounds(driverArea.removeFromTop(10));
+    driverBox.setBounds(driverArea);
+    driverBoxBounds = driverBox.getBounds();
+
     int tabW = juce::jmin(90, tabRow.getWidth() / 4);
     for (int i = 0; i < 4; ++i)
         tabButtons[i].setBounds(tabRow.removeFromLeft(tabW));

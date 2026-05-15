@@ -13,6 +13,10 @@ SettingsTab::SettingsTab(juce::AudioProcessorValueTreeState& vts) : apvts(vts)
     addAndMakeVisible(glideToggle);
     addAndMakeVisible(legatoToggle);
 
+    // --- Drive (moved here from MainTab) ---
+    knobDrive.attach(apvts, ParamIDs::driveAmount);
+    addAndMakeVisible(knobDrive);
+
     // --- Tape ---
     knobTapeDrive.attach(apvts, ParamIDs::tapeDrive);
     knobTapeSat.attach(apvts, ParamIDs::tapeSaturation);
@@ -71,7 +75,7 @@ void SettingsTab::paint(juce::Graphics& g)
     g.fillAll(BW::Black);
 
     paintCard(g, cardGlide, "GLIDE / PORTAMENTO");
-    paintCard(g, cardTape, "TAPE SATURATION");
+    paintCard(g, cardTape, "DRIVE / TAPE SATURATION");
     paintCard(g, cardComp, "COMPRESSOR");
     paintCard(g, cardReverb, "HARMONIC REVERB");
     paintCard(g, cardOutput, "OUTPUT EQ");
@@ -117,14 +121,15 @@ void SettingsTab::resized()
         knobGlideTime.setBounds(area);
     }
 
-    // Tape
+    // Drive + Tape
     {
         auto area = cardContent(cardTape);
-        int kw = area.getWidth() / 4;
+        int kw = area.getWidth() / 5;
+        knobDrive   .setBounds(area.removeFromLeft(kw));
         knobTapeDrive.setBounds(area.removeFromLeft(kw));
-        knobTapeSat.setBounds(area.removeFromLeft(kw));
+        knobTapeSat .setBounds(area.removeFromLeft(kw));
         knobTapeBump.setBounds(area.removeFromLeft(kw));
-        knobTapeMix.setBounds(area);
+        knobTapeMix .setBounds(area);
     }
 
     // Output

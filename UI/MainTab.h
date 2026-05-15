@@ -6,7 +6,15 @@
 #include "BWColours.h"
 
 /**
- * MainTab — Tab 1: Amp envelope + dynamics + oscillator controls.
+ * MainTab — Tab 1: Amp envelope, oscillators, pitch envelope, glide.
+ *
+ * Layout (top to bottom):
+ *   - AMPLITUDE ENVELOPE: ADSR viz + 4 knobs (Attack, Decay, Sustain, Release)
+ *   - OSCILLATORS: OSC1/OSC2 wave selectors + 6 knobs (OSC1, OSC2, Detune, Sub, Noise, Fdbk)
+ *   - DYNAMICS / GLIDE: P.ENV, P.TIME, Glide toggle, Mono toggle, small Glide-Time knob
+ *
+ * (Driver selector + Level knob live in the HeaderBar.
+ *  Drive knob lives in the Effects tab.)
  */
 class MainTab : public juce::Component
 {
@@ -28,11 +36,10 @@ private:
     BWKnob knobSustain { "SUSTAIN", "%" };
     BWKnob knobRelease { "RELEASE", "s" };
 
-    // Dynamics row
-    BWKnob knobDrive   { "DRIVE",   "" };
-    BWKnob knobLevel   { "LEVEL",   "" };
-    BWKnob knobPitchAmt{ "P.ENV",   "st" };
-    BWKnob knobPitchTm { "P.TIME",  "ms" };
+    // Pitch envelope + glide-time (compact bottom row)
+    BWKnob knobPitchAmt  { "P.ENV",      "st" };
+    BWKnob knobPitchTm   { "P.TIME",     "ms" };
+    BWKnob knobGlideTime { "GLIDE TIME", "ms" };
     juce::ToggleButton glideToggle { "GLIDE" };
     juce::ToggleButton monoToggle  { "MONO" };
 
@@ -48,15 +55,11 @@ private:
     juce::ComboBox osc1WaveBox, osc2WaveBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc1WaveAttach, osc2WaveAttach;
 
-    // Bass mode
-    juce::ComboBox bassModeBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> bassModeAttach;
-
     // Toggle attachments
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> glideAttach;
 
     // Section labels
-    juce::Label ampLabel, dynLabel, oscLabel;
+    juce::Label ampLabel, oscLabel, dynLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainTab)
 };

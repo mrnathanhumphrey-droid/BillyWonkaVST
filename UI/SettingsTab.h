@@ -27,6 +27,9 @@ private:
     juce::ToggleButton legatoToggle  { "Legato Only" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> glideAttach, legatoAttach;
 
+    // Drive (moved here from MainTab)
+    BWKnob knobDrive       { "DRIVE",      "" };
+
     // Tape saturation
     BWKnob knobTapeDrive   { "TAPE DRIVE", "" };
     BWKnob knobTapeSat     { "TAPE SAT",   "" };

@@ -97,9 +97,16 @@ float TransientWaveshaper::processSample(float input)
 
     float H = preOut * ja_inputGain * onsetRamp;
     float dH = H - H_prev;
-    float delta = (dH >= 0.0f) ? 1.0f : -1.0f;
+    // Hard sign(dH) flips at every zero crossing → discontinuity in dM →
+    // audible per-half-cycle click train (perceived as "feedback ringing")
+    // when fed any sustained tone. Smooth-sign with a magnitude floor on the
+    // denominator keeps the hysteresis loop intact for real direction changes
+    // but suppresses the click-spray near turning points.
+    float delta = std::tanh(dH * 2000.0f);
     float Man = ja_Ms * std::tanh(H / ja_a);
-    float denom = ja_k * delta + 1.0e-6f;
+    float denomRaw = ja_k * delta;
+    float denom = (denomRaw >= 0.0f) ? std::max(denomRaw, 0.02f)
+                                     : std::min(denomRaw, -0.02f);
     float dM = (Man - M_prev) / denom;
     float M = M_prev + dM * ja_dt;
     M = std::max(-ja_Ms * 1.5f, std::min(ja_Ms * 1.5f, M));

@@ -297,7 +297,7 @@ void OutputStage::computePeaking(double fc, double gainDB, double Q,
 // Process
 // =============================================================================
 
-float OutputStage::process(float input)
+float OutputStage::processPreFilter(float input)
 {
     float sample = input;
 
@@ -311,12 +311,26 @@ float OutputStage::process(float input)
 
     // --- Per-mode bass driver (via std::variant) ---
     // Gate processing when signal is below noise floor to prevent
-    // amplifying floating-point noise through compressor makeup gain
+    // amplifying floating-point noise.
     if (std::abs(sample) > 1.0e-6f)
     {
         sample = std::visit([sample](auto& d) { return d.processSample(sample); }, driver);
-        sample = compressor.processSample(sample);
     }
+
+    return sample;
+}
+
+float OutputStage::processPostFilter(float input)
+{
+    float sample = input;
+
+    // --- Compressor — ALWAYS process, even on silence ---
+    // Previously gated by |sample|>1e-6, which froze the envelope follower
+    // during silence. When a new note arrived the detector state was stale
+    // (still holding the previous note's envelope value) so the very first
+    // sample got the wrong gain reduction → audible click on every note-on.
+    // Compressor has its own denormal handling; safe to call on zero input.
+    sample = compressor.processSample(sample);
 
     // --- BillyWonka Bass EQ (after compressor, before reverb) ---
     if (eqEnabled)
@@ -334,6 +348,14 @@ float OutputStage::process(float input)
     sample *= masterVolume;
 
     return sample;
+}
+
+float OutputStage::process(float input)
+{
+    // Legacy wrapper — preserves the old monolithic chain order
+    // (drive + driver + comp + EQ + reverb + master) for any caller that
+    // hasn't been migrated to the split entry points yet.
+    return processPostFilter(processPreFilter(input));
 }
 
 void OutputStage::applyStereoWidth(float& left, float& right)

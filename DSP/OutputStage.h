@@ -54,6 +54,19 @@ public:
     void prepare(double sampleRate, int blockSize);
     void reset();
 
+    /** Drive + per-mode bass driver. Runs BEFORE the Moog filter so the
+     *  driver gets to saturate the raw oscillator harmonics; the filter then
+     *  shapes the saturated tone (classic Moog signal flow). */
+    float processPreFilter(float input);
+
+    /** Compressor + Bass EQ + Bass Reverb + master volume. Runs AFTER the
+     *  Moog filter + amp envelope so dynamics, tonal polish, and space are
+     *  applied to the enveloped, filtered voice. */
+    float processPostFilter(float input);
+
+    /** Legacy single-pass wrapper kept for any caller that still expects the
+     *  old monolithic chain (preFilter -> postFilter). New code should call
+     *  processPreFilter / processPostFilter on either side of the filter. */
     float process(float input);
 
     void applyStereoWidth(float& left, float& right);

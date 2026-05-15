@@ -4,6 +4,7 @@ GrooveEngineRnBAudioProcessorEditor::GrooveEngineRnBAudioProcessorEditor(
     GrooveEngineRnBAudioProcessor& p)
     : AudioProcessorEditor(&p),
       processorRef(p),
+      headerBar(p.getAPVTS()),
       mainTab(p.getAPVTS()),
       filterTab(p.getAPVTS()),
       settingsTab(p.getAPVTS()),
@@ -131,8 +132,8 @@ void GrooveEngineRnBAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
 
-    // Header: 54px
-    headerBar.setBounds(bounds.removeFromTop(54));
+    // Header: taller now that it carries DRIVER selector + LEVEL knob
+    headerBar.setBounds(bounds.removeFromTop(80));
 
     // Keyboard: 70px at bottom
     keyboardComponent.setBounds(bounds.removeFromBottom(70));

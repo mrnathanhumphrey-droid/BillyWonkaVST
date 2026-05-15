@@ -293,6 +293,27 @@ and compute Hz from tempo: `lfoHz = bpm / 60 * (beatsPerBar / division)`.
 
 ---
 
+## 9. EQ width knob is static — doesn't respond to user input
+
+**Severity:** medium — control surface broken.
+
+**Symptom:** The Bass EQ "width" knob in the UI does not change anything
+audibly when turned. Knob position updates visually but no parameter
+binding fires.
+
+**Suspected location:**
+- `UI/FilterTab.cpp` or wherever the Bass EQ width knob is wired — likely
+  missing an `attachToParameter` call or pointing at a wrong APVTS ID.
+- Or the param exists but `OutputStage::setEQWidth` (or equivalent) was
+  never implemented / hooked into the render path.
+
+**Fix path:** verify the knob's `SliderAttachment` is constructed with the
+correct APVTS parameter ID; verify the engine has a corresponding setter
+called from `updateEngineParameters`; verify the setter actually affects
+the biquad math (e.g. Q scaling on the peaking sections).
+
+---
+
 ## Notes
 
 - Pluck-driver bug (#1) is independent of the macOS pipeline bugs and

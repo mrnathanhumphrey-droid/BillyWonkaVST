@@ -29,12 +29,17 @@ void BassReverb::prepare(double sampleRate, int /*blockSize*/)
     updateCrossover();
     updateFeedbackForMode();
     updateDampingForMode();
+
+    // Wet-side HPF floor (always 180 Hz regardless of mode)
+    wetHpf.setCutoff(WET_HPF_FLOOR_HZ, static_cast<float>(sampleRate_));
+    wetHpf.clear();
 }
 
 void BassReverb::reset()
 {
     flushAllBuffers();
     lpState = 0.0f;
+    wetHpf.clear();
     reverbWasActive = false;
 }
 
@@ -169,6 +174,11 @@ float BassReverb::processSample(float input)
         case Mode::Spring: reverbOut = spring.process(highPath); break;
         case Mode::Hall:   reverbOut = hall.process(highPath);   break;
     }
+
+    // Strip any sub-180Hz content the reverb tank may have leaked back in
+    // (per-mode crossover is only first-order; reverb feedback + damping can
+    // recirculate energy into the sub band — wet HPF guarantees the floor)
+    reverbOut = wetHpf.process(reverbOut);
 
     // --- Wet/dry blend on harmonic path only ---
     float highOut = highPath * (1.0f - mix) + reverbOut * mix;

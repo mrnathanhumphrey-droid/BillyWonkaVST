@@ -34,15 +34,13 @@ MainTab::MainTab(juce::AudioProcessorValueTreeState& vts) : apvts(vts)
     addAndMakeVisible(knobSustain);
     addAndMakeVisible(knobRelease);
 
-    // --- Dynamics row ---
-    knobDrive.attach(apvts, ParamIDs::driveAmount);
-    knobLevel.attach(apvts, ParamIDs::masterVolume);
+    // --- Pitch envelope + glide-time (bottom row) ---
     knobPitchAmt.attach(apvts, ParamIDs::pitchEnvAmount);
     knobPitchTm.attach(apvts, ParamIDs::pitchEnvTime);
-    addAndMakeVisible(knobDrive);
-    addAndMakeVisible(knobLevel);
+    knobGlideTime.attach(apvts, ParamIDs::glideTime);
     addAndMakeVisible(knobPitchAmt);
     addAndMakeVisible(knobPitchTm);
+    addAndMakeVisible(knobGlideTime);
 
     glideToggle.setColour(juce::ToggleButton::textColourId, BW::PinkSoft);
     glideToggle.setColour(juce::ToggleButton::tickColourId, BW::Pink);
@@ -84,53 +82,41 @@ MainTab::MainTab(juce::AudioProcessorValueTreeState& vts) : apvts(vts)
     addAndMakeVisible(osc1WaveBox);
     addAndMakeVisible(osc2WaveBox);
 
-    // Bass mode
-    bassModeBox.addItem("PLUCK", 1);
-    bassModeBox.addItem("808", 2);
-    bassModeBox.addItem("REESE", 3);
-    styleComboBox(bassModeBox);
-    bassModeAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-        apvts, ParamIDs::bassMode, bassModeBox);
-    addAndMakeVisible(bassModeBox);
-
     // Section labels
     styleSectionLabel(ampLabel, "AMPLITUDE ENVELOPE");
-    styleSectionLabel(dynLabel, "DYNAMICS / PITCH");
     styleSectionLabel(oscLabel, "OSCILLATORS");
+    styleSectionLabel(dynLabel, "PITCH / GLIDE");
     addAndMakeVisible(ampLabel);
-    addAndMakeVisible(dynLabel);
     addAndMakeVisible(oscLabel);
+    addAndMakeVisible(dynLabel);
 }
 
 void MainTab::paint(juce::Graphics& g)
 {
     g.fillAll(BW::Black);
 
-    // Section separator lines
     auto drawSep = [&](int y)
     {
         g.setColour(BW::Grey.withAlpha(0.3f));
         g.fillRect(8, y, getWidth() - 16, 1);
     };
 
-    // Approximate separator positions
-    int adsrBottom = static_cast<int>(getHeight() * 0.42f);
-    int dynBottom = static_cast<int>(getHeight() * 0.68f);
+    int adsrBottom = static_cast<int>(getHeight() * 0.45f);
+    int oscBottom  = static_cast<int>(getHeight() * 0.82f);
     drawSep(adsrBottom);
-    drawSep(dynBottom);
+    drawSep(oscBottom);
 }
 
 void MainTab::resized()
 {
     auto bounds = getLocalBounds().reduced(8, 4);
 
-    // --- Section 1: ADSR (top ~42%) ---
-    auto adsrSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.42f));
+    // --- Section 1: ADSR (top ~45%) ---
+    auto adsrSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.45f));
     ampLabel.setBounds(adsrSection.removeFromTop(16));
     auto adsrViz = adsrSection.removeFromTop(static_cast<int>(adsrSection.getHeight() * 0.6f));
     adsrDisplay.setBounds(adsrViz.reduced(0, 2));
 
-    // ADSR knobs row
     auto adsrKnobRow = adsrSection;
     int knobW = adsrKnobRow.getWidth() / 4;
     knobAttack.setBounds(adsrKnobRow.removeFromLeft(knobW));
@@ -138,23 +124,21 @@ void MainTab::resized()
     knobSustain.setBounds(adsrKnobRow.removeFromLeft(knobW));
     knobRelease.setBounds(adsrKnobRow);
 
-    // --- Section 2: Dynamics (~26%) ---
-    auto dynSection = bounds.removeFromTop(static_cast<int>(bounds.getHeight() * 0.45f));
-    dynLabel.setBounds(dynSection.removeFromTop(16));
+    // --- Section 3: Bottom row — Pitch env + Glide (reserve from bottom first) ---
+    auto bottomRow = bounds.removeFromBottom(static_cast<int>(bounds.getHeight() * 0.30f));
+    dynLabel.setBounds(bottomRow.removeFromTop(14));
 
-    // Bass mode selector at the right
-    auto modeArea = dynSection.removeFromRight(90);
-    bassModeBox.setBounds(modeArea.removeFromTop(24).reduced(4, 0));
-    glideToggle.setBounds(modeArea.removeFromTop(24).reduced(4, 0));
-    monoToggle.setBounds(modeArea.removeFromTop(24).reduced(4, 0));
+    // 5 cells: P.ENV | P.TIME | GLIDE toggle | MONO toggle | GLIDE TIME knob
+    int bw = bottomRow.getWidth() / 5;
+    knobPitchAmt.setBounds(bottomRow.removeFromLeft(bw));
+    knobPitchTm .setBounds(bottomRow.removeFromLeft(bw));
+    auto togglesCol = bottomRow.removeFromLeft(bw).reduced(4, 4);
+    glideToggle.setBounds(togglesCol.removeFromTop(togglesCol.getHeight() / 2));
+    monoToggle .setBounds(togglesCol);
+    knobGlideTime.setBounds(bottomRow.removeFromLeft(bw));
+    // (last cell is intentional spacer; keeps layout symmetric if width grows)
 
-    int dynKnobW = dynSection.getWidth() / 4;
-    knobDrive.setBounds(dynSection.removeFromLeft(dynKnobW));
-    knobLevel.setBounds(dynSection.removeFromLeft(dynKnobW));
-    knobPitchAmt.setBounds(dynSection.removeFromLeft(dynKnobW));
-    knobPitchTm.setBounds(dynSection);
-
-    // --- Section 3: Oscillators (remaining) ---
+    // --- Section 2: Oscillators (middle — whatever's left) ---
     oscLabel.setBounds(bounds.removeFromTop(16));
 
     // Wave selectors row
@@ -162,12 +146,11 @@ void MainTab::resized()
     osc1WaveBox.setBounds(waveRow.removeFromLeft(waveRow.getWidth() / 2).reduced(4, 0));
     osc2WaveBox.setBounds(waveRow.reduced(4, 0));
 
-    // Osc knobs
     int oscKnobW = bounds.getWidth() / 6;
-    knobOsc1Level.setBounds(bounds.removeFromLeft(oscKnobW));
-    knobOsc2Level.setBounds(bounds.removeFromLeft(oscKnobW));
+    knobOsc1Level .setBounds(bounds.removeFromLeft(oscKnobW));
+    knobOsc2Level .setBounds(bounds.removeFromLeft(oscKnobW));
     knobOsc2Detune.setBounds(bounds.removeFromLeft(oscKnobW));
-    knobOsc3Level.setBounds(bounds.removeFromLeft(oscKnobW));
+    knobOsc3Level .setBounds(bounds.removeFromLeft(oscKnobW));
     knobNoiseLevel.setBounds(bounds.removeFromLeft(oscKnobW));
-    knobFeedback.setBounds(bounds);
+    knobFeedback  .setBounds(bounds);
 }

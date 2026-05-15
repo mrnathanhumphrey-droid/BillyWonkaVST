@@ -35,8 +35,10 @@ private:
 
     BWLookAndFeel bwLookAndFeel;
 
-    // Header
+    // Header (constructed with APVTS — owns DRIVER selector + LEVEL knob)
     HeaderBar headerBar;
+    // NOTE: headerBar must be initialised AFTER mainTab in the ctor init list
+    // is fine since both take the same APVTS; ordering is handled by ctor body.
 
     // Tab content panels
     MainTab mainTab;

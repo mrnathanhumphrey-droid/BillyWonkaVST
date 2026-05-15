@@ -134,12 +134,49 @@ private:
     }
 
     // =========================================================================
-    // Crossover HPF (first-order)
+    // Crossover HPF (first-order, mode-dependent)
     // =========================================================================
     void updateCrossover();
     float hpfCutoff = 220.0f;
     float lpCoeff = 0.0f;
     float lpState = 0.0f;
+
+    // =========================================================================
+    // Wet-output HPF — 2nd-order Butterworth at 180 Hz (floor).
+    // Prevents the reverb tank's internal LPF/feedback from leaking sub
+    // content into the wet send regardless of which mode is active.
+    // =========================================================================
+    struct BiquadHPF
+    {
+        float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+        float a1 = 0.0f, a2 = 0.0f;
+        float z1 = 0.0f, z2 = 0.0f;
+
+        void setCutoff(float fc, float sr)
+        {
+            // RBJ Butterworth HPF, Q = 1/sqrt(2)
+            float w0 = 2.0f * PI_F * fc / sr;
+            float cosw = std::cos(w0);
+            float sinw = std::sin(w0);
+            float alpha = sinw * 0.70710678f;  // sin/(2Q), Q = 1/sqrt(2) => 0.707
+            float a0 = 1.0f + alpha;
+            b0 = ( (1.0f + cosw) * 0.5f) / a0;
+            b1 = (-(1.0f + cosw))       / a0;
+            b2 = ( (1.0f + cosw) * 0.5f) / a0;
+            a1 = (-2.0f * cosw)          / a0;
+            a2 = ( 1.0f - alpha)         / a0;
+        }
+        void clear() { z1 = z2 = 0.0f; }
+        float process(float x)
+        {
+            float y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            return y;
+        }
+    } wetHpf;
+
+    static constexpr float WET_HPF_FLOOR_HZ = 180.0f;
 
     // =========================================================================
     // ROOM — Schroeder-Moorer

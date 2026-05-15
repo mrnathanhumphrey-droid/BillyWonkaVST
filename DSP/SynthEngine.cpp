@@ -211,7 +211,24 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             float mixedSignal = mixer.process(oscOut, feedbackSample);
 
             // =====================================================
-            // 7. MOOG LADDER FILTER → filtered signal
+            // 7. AMP ENVELOPE TICK (early, so driver gets it)
+            // =====================================================
+            float ampEnvLevel = ampEnvelope.tick();
+
+            // =====================================================
+            // 8. PRE-FILTER STAGE: drive + per-mode bass driver
+            //    Saturating the raw oscillator harmonics BEFORE the filter
+            //    matches the classic Moog signal flow — the driver colors
+            //    the bright source, the filter then shapes the saturated tone.
+            // =====================================================
+            outputStage.setDrive(smoothDrive.tick());
+            outputStage.setDriverEnvelopeGain(ampEnvLevel);
+            outputStage.setDriverLFOGain(lfoValue);
+
+            float drivenSignal = outputStage.processPreFilter(mixedSignal);
+
+            // =====================================================
+            // 9. MOOG LADDER FILTER → filtered driven signal
             // =====================================================
             // Smooth base cutoff, then add modulation on top
             float smoothedBase = smoothCutoff.tick();
@@ -238,35 +255,24 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             filter.setCutoff(clampedCutoff);
             filter.setResonance(smoothResonance.tick());
 
-            float filteredSignal = filter.process(mixedSignal);
+            float filteredSignal = filter.process(drivenSignal);
 
             // =====================================================
-            // 8. AMPLITUDE ENVELOPE × filtered signal
+            // 10. AMP ENVELOPE × filtered driven signal
             // =====================================================
-            float ampEnvLevel = ampEnvelope.tick();
-
-            // Apply amplitude modulation from mod matrix (tremolo)
             float ampModFactor = 1.0f + modOutputs.ampMod;
             ampModFactor = std::max(0.0f, ampModFactor);
 
             float shapedOutput = filteredSignal * ampEnvLevel * ampModFactor;
 
-            // Feedback tap: after VCA (amp envelope), before output stage.
-            // This matches the Minimoog's feedback path.
+            // Feedback tap: after VCA, before post-filter polish chain.
             feedbackSample = shapedOutput;
 
             // =====================================================
-            // 9. OUTPUT STAGE → final sample
-            //    Drive and master volume smoothed per-sample
+            // 11. POST-FILTER STAGE: compressor + Bass EQ + Bass Reverb + master
             // =====================================================
-            outputStage.setDrive(smoothDrive.tick());
             outputStage.setMasterVolume(smoothMasterVol.tick());
-
-            // Route per-sample modulation to the active driver
-            outputStage.setDriverEnvelopeGain(ampEnvLevel);
-            outputStage.setDriverLFOGain(lfoValue);
-
-            outputSample = outputStage.process(shapedOutput);
+            outputSample = outputStage.processPostFilter(shapedOutput);
         }
         else
         {
