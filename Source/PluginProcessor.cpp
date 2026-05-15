@@ -586,7 +586,10 @@ void GrooveEngineRnBAudioProcessor::updateEngineParameters()
     // --- Glide ---
     synthEngine.setGlideEnabled(getBool(ParamIDs::glideOn));
     synthEngine.setGlideTime(getFloat(ParamIDs::glideTime));
-    synthEngine.setGlideLegato(getBool(ParamIDs::glideLegato));
+    // Glide Legato is permanently on by request — the legato code path keeps
+    // envelope state across noteOn, which is the behaviour we want for normal
+    // note hold. APVTS / UI value is ignored.
+    synthEngine.setGlideLegato(true);
 
     // --- LFO ---
     synthEngine.setLFORate(getFloat(ParamIDs::lfoRate));
