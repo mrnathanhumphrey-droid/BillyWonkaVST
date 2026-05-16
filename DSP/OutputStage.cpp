@@ -333,13 +333,9 @@ float OutputStage::processPreFilter(float input)
     }
 
     // --- Per-mode bass driver (via std::variant) ---
-    // ===== v3.0.15 DIAGNOSTIC: driver entirely bypassed =====
-    // If the click goes away with this `if (false)` wrapper in place, the
-    // per-mode driver (TransientWaveshaper / SubHarmonicExciter / etc.) is
-    // the click source and we keep debugging it. If the click persists, the
-    // problem is downstream (Moog filter / Bass EQ / Compressor / Reverb)
-    // or upstream (mixer / oscillator). Re-enable by removing `false &&`.
-    if (false && std::abs(sample) > 1.0e-6f)
+    // Gate processing when signal is below noise floor to prevent
+    // amplifying floating-point noise.
+    if (std::abs(sample) > 1.0e-6f)
     {
         sample = std::visit([sample](auto& d) { return d.processSample(sample); }, driver);
     }
@@ -351,18 +347,12 @@ float OutputStage::processPostFilter(float input)
 {
     float sample = input;
 
-    // ===== v3.0.17 DIAGNOSTIC: ALL post-filter processing bypassed =====
-    // Skips compressor, EQ biquads, and BassReverb to bisect further.
-    // Combined with the driver bypass from v3.0.15, the active chain
-    // is now: osc → mixer → Moog filter → VCA → master vol → output.
-    // If clicks GO AWAY here, the issue is in compressor / EQ / reverb.
-    // If clicks REMAIN here, the issue is in osc / mixer / filter / VCA.
-    //
-    // (Master volume still applied so output level is normal.)
-
-#if 0  // ←── set to 1 to re-enable the post-filter chain
+    // --- Compressor — ALWAYS process, even on silence ---
+    // Previously gated by |sample|>1e-6, which froze the envelope follower
+    // during silence and ducked the first sample of every new note.
     sample = compressor.processSample(sample);
 
+    // --- BillyWonka Bass EQ (after compressor, before reverb) ---
     if (eqEnabled)
     {
         sample = processBiquad(sample, hpfCoeffs,  hpfL);
@@ -371,10 +361,10 @@ float OutputStage::processPostFilter(float input)
         sample = processBiquad(sample, mudCoeffs,  mudL);
     }
 
+    // --- Bass Reverb (after EQ, before master vol) ---
     sample = bassReverb.processSample(sample);
-#endif
 
-    // --- Master Volume (always) ---
+    // --- Master Volume ---
     sample *= masterVolume;
 
     return sample;

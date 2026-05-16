@@ -85,15 +85,10 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         filterEnvelope.noteOn(velocity);
         ampEnvelope.noteOn(velocity);
 
-        // v3.0.20 DIAGNOSTIC: phase reset disabled. v3.0.10 added this to
-        // eliminate a random-phase-at-onset pop, but the click pattern with
-        // the minimal v3.0.18 chain (osc → mixer → VCA → master) plus
-        // FDBK=0 plus feedbackSample clear (v3.0.19) is consistent with
-        // the phase reset itself interacting with PolyBLEP at sample 0
-        // (Pulse at t=0 outputs `1 + polyBLEP(0) = 0` then jumps to `+1`
-        // at sample 1 — a 1-sample step that gets amplified by the VCA
-        // ramp). Disabling lets osc phases run continuously across notes.
-        // oscillatorBank.resetPhases();
+        // Reset oscillator phases so each note starts at phase 0.
+        // Random-phase note-ons multiply a non-zero osc value by an
+        // attacking VCA, producing a hard pop on the first samples.
+        oscillatorBank.resetPhases();
 
         // Reset the Moog ladder filter state. Between notes the render
         // loop is gated by `noteActive`, which means the filter freezes
@@ -165,34 +160,6 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
 {
     noteManager.prepareForBlock();
 
-    // ============================================================
-    // v3.0.22 DIAGNOSTIC: BYPASS THE ENTIRE ENGINE.
-    // Writes a 440 Hz test sine gated by note-on/off, no envelope
-    // ticking, no DSP state updates. The ONLY engine work is checking
-    // noteManager state. If this STILL clicks halfway through a held
-    // note, the bug is 100% host-side (JUCE Standalone audio driver
-    // buffer underruns, sample-rate mismatch, ASIO config) and the
-    // engine is innocent.
-    // ============================================================
-    static double testPhase = 0.0;
-    const double testPhaseInc = 440.0 / sampleRate;
-    for (int i = 0; i < numSamples; ++i)
-    {
-        float out = 0.0f;
-        if (noteManager.isNoteActive())
-        {
-            testPhase += testPhaseInc;
-            if (testPhase >= 1.0) testPhase -= 1.0;
-            out = static_cast<float>(std::sin(testPhase * 2.0 * 3.14159265358979)) * 0.2f;
-        }
-        leftChannel[i] = out;
-        rightChannel[i] = out;
-    }
-    return;
-
-    // ============================================================
-    // (original engine path below — unreachable in v3.0.22)
-    // ============================================================
     for (int i = 0; i < numSamples; ++i)
     {
         float outputSample = 0.0f;
@@ -315,14 +282,7 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             filter.setCutoff(clampedCutoff);
             filter.setResonance(smoothResonance.tick());
 
-            // v3.0.18 DIAGNOSTIC: filter bypassed too. Chain is now
-            //   osc → mixer → VCA → master vol → output
-            // If clicks GONE: Moog ladder (filter.reset on note-on OR its
-            // tanh-saturated ladder reacting to raw osc) is the click source.
-            // If REMAIN: it's in osc/mixer/VCA — most surprising outcome.
-            // Set to `filter.process(drivenSignal)` to restore.
-            float filteredSignal = drivenSignal;
-            (void) clampedCutoff;
+            float filteredSignal = filter.process(drivenSignal);
 
             // =====================================================
             // 10. AMP ENVELOPE × filtered driven signal
@@ -340,27 +300,6 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             // =====================================================
             outputStage.setMasterVolume(smoothMasterVol.tick());
             outputSample = outputStage.processPostFilter(shapedOutput);
-
-            // v3.0.21 DIAGNOSTIC: replace engine output with a pure 440 Hz
-            // sine wave for the duration of the held note. Bypasses
-            // OSCILLATOR + MIXER + VCA + ENVELOPES + MASTER VOL — literally
-            // every sample-rate-dependent computation in the synth. The amp
-            // envelope is still TICKED (so the note ends when env reaches
-            // Idle) and we still apply it as a gentle gate, but the signal
-            // itself is a hand-rolled sine to rule out the engine entirely.
-            // If the click STILL appears halfway through a held note here:
-            // it's the host (JUCE Standalone audio driver / buffer config),
-            // not the DSP.
-            // If the click is GONE: something in the synth's actual chain
-            // is responsible — we restart the bisect with the engine
-            // reactivated piece by piece.
-            {
-                static double testPhase = 0.0;
-                testPhase += 440.0 / sampleRate;
-                if (testPhase >= 1.0) testPhase -= 1.0;
-                float testSine = std::sin(testPhase * 2.0 * 3.14159265358979);
-                outputSample = testSine * 0.2f * ampEnvLevel;  // gated by env
-            }
         }
         else
         {
