@@ -333,9 +333,13 @@ float OutputStage::processPreFilter(float input)
     }
 
     // --- Per-mode bass driver (via std::variant) ---
-    // Gate processing when signal is below noise floor to prevent
-    // amplifying floating-point noise.
-    if (std::abs(sample) > 1.0e-6f)
+    // ===== v3.0.15 DIAGNOSTIC: driver entirely bypassed =====
+    // If the click goes away with this `if (false)` wrapper in place, the
+    // per-mode driver (TransientWaveshaper / SubHarmonicExciter / etc.) is
+    // the click source and we keep debugging it. If the click persists, the
+    // problem is downstream (Moog filter / Bass EQ / Compressor / Reverb)
+    // or upstream (mixer / oscillator). Re-enable by removing `false &&`.
+    if (false && std::abs(sample) > 1.0e-6f)
     {
         sample = std::visit([sample](auto& d) { return d.processSample(sample); }, driver);
     }
