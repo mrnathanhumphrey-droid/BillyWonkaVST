@@ -100,13 +100,17 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         filter.reset();
 
         // v3.0.16 DIAGNOSTIC: post-filter reset DISABLED.
-        // In v3.0.15 the driver was bypassed and the user reported the FIRST
-        // note clean but subsequent notes click + notes wouldn't end. That
-        // pattern (state accumulating after first note) implicates this
-        // resetPostFilterState() call rather than the driver. Disabling it
-        // here keeps the driver-bypassed diagnostic clean while bisecting
-        // the second click source.
         // outputStage.resetPostFilterState();
+
+        // v3.0.19 DIAGNOSTIC: clear the feedback tap on every non-legato
+        // note-on. Without this, feedbackSample carries the last sample of
+        // the previous note's release tail into the new note. With FDBK=0
+        // the mixer's gate `feedbackAmount > 0.0001f` should skip it
+        // anyway, but resetting belt-and-suspenders here lets us confirm
+        // whether stale feedbackSample is sneaking in via some unexpected
+        // path (e.g., a denormal that's nonzero in float math but rounds
+        // weirdly through the mixer's std::tanh).
+        feedbackSample = 0.0f;
     }
 
     // Always trigger pitch envelope on every new note (for 808 punch / pluck snap)
