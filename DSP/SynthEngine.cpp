@@ -278,7 +278,14 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             filter.setCutoff(clampedCutoff);
             filter.setResonance(smoothResonance.tick());
 
-            float filteredSignal = filter.process(drivenSignal);
+            // v3.0.18 DIAGNOSTIC: filter bypassed too. Chain is now
+            //   osc → mixer → VCA → master vol → output
+            // If clicks GONE: Moog ladder (filter.reset on note-on OR its
+            // tanh-saturated ladder reacting to raw osc) is the click source.
+            // If REMAIN: it's in osc/mixer/VCA — most surprising outcome.
+            // Set to `filter.process(drivenSignal)` to restore.
+            float filteredSignal = drivenSignal;
+            (void) clampedCutoff;
 
             // =====================================================
             // 10. AMP ENVELOPE × filtered driven signal
