@@ -99,13 +99,14 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         // phase reset + softer attacks landed in v3.0.10.
         filter.reset();
 
-        // Same stale-state problem applies to the post-VCA chain in
-        // OutputStage: the BillyWonka Bass EQ peaking biquads (Q=1.5/1.2)
-        // and the RnBCompressor's envelope followers freeze across the
-        // noteActive gap. The 4-pole peaking filters ring on the first
-        // sample of a new note; the compressor either ducks or punches
-        // based on whatever envelope value it last held. Reset both.
-        outputStage.resetPostFilterState();
+        // v3.0.16 DIAGNOSTIC: post-filter reset DISABLED.
+        // In v3.0.15 the driver was bypassed and the user reported the FIRST
+        // note clean but subsequent notes click + notes wouldn't end. That
+        // pattern (state accumulating after first note) implicates this
+        // resetPostFilterState() call rather than the driver. Disabling it
+        // here keeps the driver-bypassed diagnostic clean while bisecting
+        // the second click source.
+        // outputStage.resetPostFilterState();
     }
 
     // Always trigger pitch envelope on every new note (for 808 punch / pluck snap)
