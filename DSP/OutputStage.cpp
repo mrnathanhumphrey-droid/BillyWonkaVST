@@ -351,15 +351,18 @@ float OutputStage::processPostFilter(float input)
 {
     float sample = input;
 
-    // --- Compressor — ALWAYS process, even on silence ---
-    // Previously gated by |sample|>1e-6, which froze the envelope follower
-    // during silence. When a new note arrived the detector state was stale
-    // (still holding the previous note's envelope value) so the very first
-    // sample got the wrong gain reduction → audible click on every note-on.
-    // Compressor has its own denormal handling; safe to call on zero input.
+    // ===== v3.0.17 DIAGNOSTIC: ALL post-filter processing bypassed =====
+    // Skips compressor, EQ biquads, and BassReverb to bisect further.
+    // Combined with the driver bypass from v3.0.15, the active chain
+    // is now: osc → mixer → Moog filter → VCA → master vol → output.
+    // If clicks GO AWAY here, the issue is in compressor / EQ / reverb.
+    // If clicks REMAIN here, the issue is in osc / mixer / filter / VCA.
+    //
+    // (Master volume still applied so output level is normal.)
+
+#if 0  // ←── set to 1 to re-enable the post-filter chain
     sample = compressor.processSample(sample);
 
-    // --- BillyWonka Bass EQ (after compressor, before reverb) ---
     if (eqEnabled)
     {
         sample = processBiquad(sample, hpfCoeffs,  hpfL);
@@ -368,10 +371,10 @@ float OutputStage::processPostFilter(float input)
         sample = processBiquad(sample, mudCoeffs,  mudL);
     }
 
-    // --- Bass Reverb (after EQ, before master vol) ---
     sample = bassReverb.processSample(sample);
+#endif
 
-    // --- Master Volume ---
+    // --- Master Volume (always) ---
     sample *= masterVolume;
 
     return sample;
