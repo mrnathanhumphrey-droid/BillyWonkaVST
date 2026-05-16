@@ -165,6 +165,34 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
 {
     noteManager.prepareForBlock();
 
+    // ============================================================
+    // v3.0.22 DIAGNOSTIC: BYPASS THE ENTIRE ENGINE.
+    // Writes a 440 Hz test sine gated by note-on/off, no envelope
+    // ticking, no DSP state updates. The ONLY engine work is checking
+    // noteManager state. If this STILL clicks halfway through a held
+    // note, the bug is 100% host-side (JUCE Standalone audio driver
+    // buffer underruns, sample-rate mismatch, ASIO config) and the
+    // engine is innocent.
+    // ============================================================
+    static double testPhase = 0.0;
+    const double testPhaseInc = 440.0 / sampleRate;
+    for (int i = 0; i < numSamples; ++i)
+    {
+        float out = 0.0f;
+        if (noteManager.isNoteActive())
+        {
+            testPhase += testPhaseInc;
+            if (testPhase >= 1.0) testPhase -= 1.0;
+            out = static_cast<float>(std::sin(testPhase * 2.0 * 3.14159265358979)) * 0.2f;
+        }
+        leftChannel[i] = out;
+        rightChannel[i] = out;
+    }
+    return;
+
+    // ============================================================
+    // (original engine path below — unreachable in v3.0.22)
+    // ============================================================
     for (int i = 0; i < numSamples; ++i)
     {
         float outputSample = 0.0f;
