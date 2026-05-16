@@ -69,6 +69,11 @@ public:
      *  processPreFilter / processPostFilter on either side of the filter. */
     float process(float input);
 
+    /** Clear all biquad state in the BillyWonka Bass EQ + the BassReverb's
+     *  wet HPF. Call on every non-legato note-on so high-Q peaking filters
+     *  don't ring stale state across the silence gap. */
+    void resetPostFilterState();
+
     void applyStereoWidth(float& left, float& right);
 
     void setDrive(float amount);           // 0.0 to 1.0

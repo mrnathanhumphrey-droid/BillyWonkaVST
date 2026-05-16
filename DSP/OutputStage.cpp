@@ -33,6 +33,29 @@ void OutputStage::reset()
     bassReverb.reset();
 }
 
+void OutputStage::resetPostFilterState()
+{
+    // High-Q peaking biquads (fund: Q=1.5, mud: Q=1.2) ring strongly when
+    // their state is convolved with a new note's first sample after the
+    // render loop's noteActive gate has frozen them at the tail of the
+    // previous note. Reset all four post-filter biquads on every non-legato
+    // note-on.
+    hpfL = {}; hpfR = {};
+    subL = {}; subR = {};
+    fundL = {}; fundR = {};
+    mudL = {}; mudR = {};
+
+    // Same logic for the compressor's envelope followers: they freeze with
+    // a stale level when the render loop is gated; a new note then either
+    // gets ducked (envelope held high) or punched (envelope held low). Full
+    // reset gives a clean envelope ramp tracking the new note.
+    compressor.reset();
+
+    // BassReverb's internal flush is heavier (resets all delay lines + tail).
+    // We only want to clear the wet-HPF state on note-on, not the reverb
+    // tail itself — leave delay-line state alone here.
+}
+
 void OutputStage::setDrive(float amount)
 {
     driveAmount = std::max(0.0f, std::min(1.0f, amount));

@@ -109,11 +109,24 @@ float SubHarmonicExciter::processSample(float input)
     ja_a = std::max(0.5f, ja_a);
     bumpAmountVal = bumpVal;
 
-    float dry = input;
+    // Smoothstep onset ramp on the driver INPUT (same fix as
+    // TransientWaveshaper in v3.0.14): gates the input upstream of pre-
+    // emphasis so the +6dB shelf doesn't step-respond on sample 0. The
+    // shelf's b0 ≈ 1.96 produces a near-2x burst from a step input, which
+    // is broadcast as a high-frequency transient through tanh and the
+    // head-bump biquad — perceived as "feedback/mic-pop" at note-on.
+    float progress = (onsetSamples > 0)
+        ? 1.0f - static_cast<float>(onsetSamples) / static_cast<float>(ONSET_RAMP_SAMPLES)
+        : 1.0f;
+    if (onsetSamples > 0) --onsetSamples;
+    float onsetRamp = progress * progress * (3.0f - 2.0f * progress);
+
+    float gatedInput = input * onsetRamp;
+    float dry = gatedInput;
 
     // Stage 1: Even-order polynomial soft shaper (symmetric — no DC offset)
     // f(x) = x / (1 + α|x|) — generates even harmonics via amplitude-dependent gain
-    float x = input * polyDrive;
+    float x = gatedInput * polyDrive;
     float stage1 = x / (1.0f + polyAlpha * std::abs(x));
 
     // Stage 2: Pre-emphasis
@@ -121,23 +134,9 @@ float SubHarmonicExciter::processSample(float input)
     preX1 = stage1;
     preY1 = preOut;
 
-    // Stage 3: Softened JA hysteresis (ja_k = 0.2, lower than tape's 0.5)
-    float onsetRamp = (onsetSamples > 0)
-        ? 1.0f - static_cast<float>(onsetSamples) / static_cast<float>(ONSET_RAMP_SAMPLES)
-        : 1.0f;
-    if (onsetSamples > 0) --onsetSamples;
-
-    float H = preOut * ja_inputGain * onsetRamp;
-
-    // Same fix as TransientWaveshaper v3.0.12: the JA integration here was
-    // also `M += dM * ja_dt`, which (per the Jiles-Atherton model) should be
-    // `+ dM * dH` — the result is a first-order LP with a 200 ms time
-    // constant at ja_k=0.2, so M lagged Man across every note. With Stage 4's
-    // head bump still contributing audible 808 character, the symptom was
-    // less catastrophic than Pluck (where the wet path was silenced) but
-    // still left enough state-ringing on note-on to read as a "mechanical
-    // pop". Collapse to the anhysteretic curve directly:
-    //   stage3 = tanh(H / a)
+    // Stage 3: anhysteretic curve (JA integration collapsed in v3.0.13 —
+    // see git history). Onset ramp is now upstream of pre-emphasis.
+    float H = preOut * ja_inputGain;
     float stage3 = std::tanh(H / ja_a);
     H_prev = H;
     M_prev = stage3 * ja_Ms;

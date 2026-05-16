@@ -83,17 +83,30 @@ float TransientWaveshaper::processSample(float input)
     ja_a = 3.0f - satVal * 2.5f;
     ja_a = std::max(0.5f, ja_a);
 
-    float dry = input;
+    // Smoothstep onset ramp on the driver INPUT. Previously the ramp was
+    // applied only at H = preOut * cpDrive * onsetRamp (inside stage 3),
+    // which meant the pre-emphasis shelf still saw the full input from
+    // sample 0 — and the +6dB shelf's step response at sample 0 is ~2x
+    // the input value (b0 ≈ 1.96), broadcast as a high-frequency burst
+    // through tanh. That broadband HF burst is the "mic pop / feedback"
+    // character of the click. Gating the input upstream of pre-emphasis
+    // makes the whole chain (shelf -> tanh -> de-emphasis -> DC-blocker)
+    // see a smoothly-rising signal and eliminates the step response.
+    // Smoothstep (Hermite cubic) ramp has zero derivative at both ends,
+    // which is smoother than the previous linear ramp.
+    float progress = (onsetSamples > 0)
+        ? 1.0f - static_cast<float>(onsetSamples) / static_cast<float>(ONSET_RAMP_SAMPLES)
+        : 1.0f;
+    if (onsetSamples > 0) --onsetSamples;
+    float onsetRamp = progress * progress * (3.0f - 2.0f * progress);
 
-    // Stage 1: SYMMETRIC soft-clip. Was CP3 asymmetric (alpha=2 vs beta=1.44),
-    // which is "correct" for the Pluck topology but puts a few-percent DC
-    // bias on any symmetric input (Pulse + Square are Pluck's defaults).
-    // The DC blocker downstream can only catch static DC — when the envelope
-    // modulates cpDrive, the DC bias is modulated too and leaks through the
-    // blocker's ~22 ms settling time, audible as a sub-audio pop on every
-    // note-on. Symmetric clip eliminates the DC source entirely; the saturation
-    // character (soft-knee compression of peaks) is unchanged.
-    float x = input * cpDrive;
+    float gatedInput = input * onsetRamp;
+    float dry = gatedInput;
+
+    // Stage 1: SYMMETRIC soft-clip. CP3 (alpha=2 vs beta=1.44 asymmetric)
+    // put a few-percent DC bias on any symmetric input. Symmetric clip
+    // eliminates the DC source; saturation character is preserved.
+    float x = gatedInput * cpDrive;
     float stage1 = x / (1.0f + alpha * std::abs(x));
 
     // Stage 2: Pre-emphasis
@@ -101,33 +114,12 @@ float TransientWaveshaper::processSample(float input)
     preX1 = stage1;
     preY1 = preOut;
 
-    // Stage 3: JA hysteresis (envelope-scaled — only colors the transient)
-    float onsetRamp = (onsetSamples > 0)
-        ? 1.0f - static_cast<float>(onsetSamples) / static_cast<float>(ONSET_RAMP_SAMPLES)
-        : 1.0f;
-    if (onsetSamples > 0) --onsetSamples;
-
-    float H = preOut * ja_inputGain * onsetRamp;
-
-    // Stage 3 was a Jiles-Atherton hysteresis integrator:
-    //     M[n] = M[n-1] + (Man - M[n-1]) / (k*delta) * ja_dt
-    // The JA model integrates dM/dH, not dM/dt — the discretization should
-    // be ` + dM * dH` (change in H), not ` + dM * dt` (change in time).
-    // With the dt form and k=0.5, every sample's increment is ~4.5e-5 of
-    // the gap to Man, which is a first-order LP with a 500 ms time constant.
-    // Result: M effectively never reached Man within a bass note, the wet
-    // path stayed near zero, and with mix=1 the driver was *silencing* the
-    // signal instead of saturating it. (That's why Pluck sounded "mostly
-    // click" — the click was bleed-through and there was no body to speak of.)
-    // Switching to dM*dH instead produces an audible buzz on every Pulse-wave
-    // edge (M slams to ±1.5 per edge). Neither integration form is right at
-    // audio rate, so we collapse stage 3 to the anhysteretic curve directly:
-    //   stage3 = Man / Ms = tanh(H / a)
-    // That's the same tonal target as the JA loop's steady state, smooth
-    // through zero crossings and edges, no integration pathology.
+    // Stage 3: anhysteretic curve (JA integration collapsed in v3.0.12 —
+    // see git history). Onset ramp is now applied to the driver INPUT
+    // (smoothstep at the top of this fn), so H here just uses preOut *
+    // ja_inputGain without an in-stage ramp.
+    float H = preOut * ja_inputGain;
     float stage3 = std::tanh(H / ja_a);
-    // Keep H_prev / M_prev maintained for downstream callers that may read
-    // them via the IBassDriver interface (currently none, but cheap to do).
     H_prev = H;
     M_prev = stage3 * ja_Ms;
 

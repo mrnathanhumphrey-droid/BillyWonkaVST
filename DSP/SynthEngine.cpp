@@ -98,6 +98,14 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         // samples — that's the "mechanical pop" remaining after the
         // phase reset + softer attacks landed in v3.0.10.
         filter.reset();
+
+        // Same stale-state problem applies to the post-VCA chain in
+        // OutputStage: the BillyWonka Bass EQ peaking biquads (Q=1.5/1.2)
+        // and the RnBCompressor's envelope followers freeze across the
+        // noteActive gap. The 4-pole peaking filters ring on the first
+        // sample of a new note; the compressor either ducks or punches
+        // based on whatever envelope value it last held. Reset both.
+        outputStage.resetPostFilterState();
     }
 
     // Always trigger pitch envelope on every new note (for 808 punch / pluck snap)
