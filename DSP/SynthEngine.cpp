@@ -312,6 +312,27 @@ void SynthEngine::process(float* leftChannel, float* rightChannel, int numSample
             // =====================================================
             outputStage.setMasterVolume(smoothMasterVol.tick());
             outputSample = outputStage.processPostFilter(shapedOutput);
+
+            // v3.0.21 DIAGNOSTIC: replace engine output with a pure 440 Hz
+            // sine wave for the duration of the held note. Bypasses
+            // OSCILLATOR + MIXER + VCA + ENVELOPES + MASTER VOL — literally
+            // every sample-rate-dependent computation in the synth. The amp
+            // envelope is still TICKED (so the note ends when env reaches
+            // Idle) and we still apply it as a gentle gate, but the signal
+            // itself is a hand-rolled sine to rule out the engine entirely.
+            // If the click STILL appears halfway through a held note here:
+            // it's the host (JUCE Standalone audio driver / buffer config),
+            // not the DSP.
+            // If the click is GONE: something in the synth's actual chain
+            // is responsible — we restart the bisect with the engine
+            // reactivated piece by piece.
+            {
+                static double testPhase = 0.0;
+                testPhase += 440.0 / sampleRate;
+                if (testPhase >= 1.0) testPhase -= 1.0;
+                float testSine = std::sin(testPhase * 2.0 * 3.14159265358979);
+                outputSample = testSine * 0.2f * ampEnvLevel;  // gated by env
+            }
         }
         else
         {
