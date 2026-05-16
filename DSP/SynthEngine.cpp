@@ -85,10 +85,15 @@ void SynthEngine::handleNoteOn(int noteNumber, float velocity)
         filterEnvelope.noteOn(velocity);
         ampEnvelope.noteOn(velocity);
 
-        // Reset oscillator phases so each note starts at phase 0.
-        // Random-phase note-ons multiply a non-zero osc value by an
-        // attacking VCA, producing a hard pop on the first samples.
-        oscillatorBank.resetPhases();
+        // v3.0.20 DIAGNOSTIC: phase reset disabled. v3.0.10 added this to
+        // eliminate a random-phase-at-onset pop, but the click pattern with
+        // the minimal v3.0.18 chain (osc → mixer → VCA → master) plus
+        // FDBK=0 plus feedbackSample clear (v3.0.19) is consistent with
+        // the phase reset itself interacting with PolyBLEP at sample 0
+        // (Pulse at t=0 outputs `1 + polyBLEP(0) = 0` then jumps to `+1`
+        // at sample 1 — a 1-sample step that gets amplified by the VCA
+        // ramp). Disabling lets osc phases run continuously across notes.
+        // oscillatorBank.resetPhases();
 
         // Reset the Moog ladder filter state. Between notes the render
         // loop is gated by `noteActive`, which means the filter freezes
