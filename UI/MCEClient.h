@@ -89,5 +89,10 @@ private:
     juce::CriticalSection queueLock;
     std::vector<Request> requestQueue;
 
+    // Weak-referenceable so message-thread callAsync lambdas can detect
+    // MCEClient destruction and noop instead of dereferencing a freed
+    // `this`. Without this, ARM64 PAC catches the UAF on Apple Silicon
+    // (see v3.0.25 fix notes for the full crash chain).
+    JUCE_DECLARE_WEAK_REFERENCEABLE(MCEClient)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MCEClient)
 };

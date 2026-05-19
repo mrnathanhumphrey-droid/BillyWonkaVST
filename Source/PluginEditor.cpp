@@ -148,14 +148,12 @@ GrooveEngineRnBAudioProcessorEditor::~GrooveEngineRnBAudioProcessorEditor()
     mceClient.onParamSuggestion = nullptr;
 
     // 2. Synchronously join the MCEClient background thread. After this,
-    //    no new callAsync will be scheduled.
+    //    no new callAsync will be scheduled by the worker. Any already-
+    //    queued callAsync that fires later will hit the WeakReference
+    //    guards in MCEClient.cpp (which protect against MCEClient
+    //    destruction) and the SafePointer guards in this file's lambdas
+    //    (which protect against editor destruction).
     mceClient.disconnect();
-
-    // 3. Pump pending message-loop callbacks so anything already queued
-    //    fires (and noops via the null guards above) BEFORE editor members
-    //    begin destructing.
-    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
-        mm->runDispatchLoopUntil(50);
 
     stopTimer();
     setLookAndFeel(nullptr);

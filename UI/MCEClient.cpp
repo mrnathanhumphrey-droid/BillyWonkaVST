@@ -48,9 +48,10 @@ void MCEClient::disconnect()
 
     connected.store(false);
     if (onConnectionStatusChanged)
-        juce::MessageManager::callAsync([this]() {
-            if (onConnectionStatusChanged)
-                onConnectionStatusChanged(false, 0);
+        juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this)]() {
+            if (auto* self = weakSelf.get())
+                if (self->onConnectionStatusChanged)
+                    self->onConnectionStatusChanged(false, 0);
         });
 }
 
@@ -216,9 +217,10 @@ void MCEClient::handleChatResponse(const juce::String& responseBody)
 {
     if (responseBody.isEmpty())
     {
-        juce::MessageManager::callAsync([this]() {
-            if (onMessageReceived)
-                onMessageReceived("System", "No response from MCE server. Is it running?");
+        juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this)]() {
+            if (auto* self = weakSelf.get())
+                if (self->onMessageReceived)
+                    self->onMessageReceived("System", "No response from MCE server. Is it running?");
         });
         return;
     }
@@ -231,17 +233,19 @@ void MCEClient::handleChatResponse(const juce::String& responseBody)
         auto sender = json.getProperty("sender", "Claude").toString();
         auto hasParams = json.getProperty("has_params", false);
 
-        juce::MessageManager::callAsync([this, sender, message, hasParams]() {
-            if (onMessageReceived)
-                onMessageReceived(sender, message);
+        juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), sender, message, hasParams]() {
+            if (auto* self = weakSelf.get())
+                if (self->onMessageReceived)
+                    self->onMessageReceived(sender, message);
         });
     }
     else
     {
         // Treat raw text as Claude response
-        juce::MessageManager::callAsync([this, responseBody]() {
-            if (onMessageReceived)
-                onMessageReceived("Claude", responseBody);
+        juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), responseBody]() {
+            if (auto* self = weakSelf.get())
+                if (self->onMessageReceived)
+                    self->onMessageReceived("Claude", responseBody);
         });
     }
 }
@@ -268,18 +272,20 @@ void MCEClient::handleApplyResponse(const juce::String& responseBody)
                     paramPairs.set(prop.name.toString(), prop.value.toString());
             }
 
-            juce::MessageManager::callAsync([this, paramPairs]() {
-                if (onParamSuggestion)
-                    onParamSuggestion(paramPairs);
+            juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), paramPairs]() {
+                if (auto* self = weakSelf.get())
+                    if (self->onParamSuggestion)
+                        self->onParamSuggestion(paramPairs);
             });
         }
 
         auto message = json.getProperty("message", "").toString();
         if (message.isNotEmpty())
         {
-            juce::MessageManager::callAsync([this, message]() {
-                if (onMessageReceived)
-                    onMessageReceived("Claude", message);
+            juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), message]() {
+                if (auto* self = weakSelf.get())
+                    if (self->onMessageReceived)
+                        self->onMessageReceived("Claude", message);
             });
         }
     }
@@ -289,9 +295,10 @@ void MCEClient::handlePlayResponse(const juce::String& responseBody)
 {
     if (responseBody.isEmpty())
     {
-        juce::MessageManager::callAsync([this]() {
-            if (onMessageReceived)
-                onMessageReceived("System", "No play response from MCE server.");
+        juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this)]() {
+            if (auto* self = weakSelf.get())
+                if (self->onMessageReceived)
+                    self->onMessageReceived("System", "No play response from MCE server.");
         });
         return;
     }
@@ -359,13 +366,16 @@ void MCEClient::handlePlayResponse(const juce::String& responseBody)
                 midiInjector.beginSequence();
 
                 int noteCount = arr->size();
-                juce::MessageManager::callAsync([this, noteCount, message]() {
-                    if (onMessageReceived)
+                juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), noteCount, message]() {
+                    if (auto* self = weakSelf.get())
                     {
-                        juce::String msg = "Playing " + juce::String(noteCount / 2) + " notes...";
-                        if (message.isNotEmpty())
-                            msg = message + "\n" + msg;
-                        onMessageReceived("Claude", msg);
+                        if (self->onMessageReceived)
+                        {
+                            juce::String msg = "Playing " + juce::String(noteCount / 2) + " notes...";
+                            if (message.isNotEmpty())
+                                msg = message + "\n" + msg;
+                            self->onMessageReceived("Claude", msg);
+                        }
                     }
                 });
             }
@@ -373,9 +383,10 @@ void MCEClient::handlePlayResponse(const juce::String& responseBody)
 
         if (message.isNotEmpty() && (notes.isVoid() || !notes.isArray()))
         {
-            juce::MessageManager::callAsync([this, message]() {
-                if (onMessageReceived)
-                    onMessageReceived("Claude", message);
+            juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), message]() {
+                if (auto* self = weakSelf.get())
+                    if (self->onMessageReceived)
+                        self->onMessageReceived("Claude", message);
             });
         }
     }
@@ -392,9 +403,10 @@ void MCEClient::handleHealthResponse(const juce::String& responseBody, int64_t e
     if (nowConnected != wasConnected || nowConnected)
     {
         int lat = static_cast<int>(elapsedMs);
-        juce::MessageManager::callAsync([this, nowConnected, lat]() {
-            if (onConnectionStatusChanged)
-                onConnectionStatusChanged(nowConnected, lat);
+        juce::MessageManager::callAsync([weakSelf = juce::WeakReference<MCEClient>(this), nowConnected, lat]() {
+            if (auto* self = weakSelf.get())
+                if (self->onConnectionStatusChanged)
+                    self->onConnectionStatusChanged(nowConnected, lat);
         });
     }
 }
