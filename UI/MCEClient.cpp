@@ -7,6 +7,14 @@ MCEClient::MCEClient(juce::AudioProcessorValueTreeState& vts, MidiInjector& inje
 
 MCEClient::~MCEClient()
 {
+    // Null callbacks before disconnect() so its final callAsync's
+    // `if (onConnectionStatusChanged)` guard fails and no lambda is queued
+    // capturing a `this` that's about to be freed. The editor destructor
+    // already does this, but be defensive in case MCEClient is used
+    // standalone in tests or future refactors.
+    onMessageReceived = nullptr;
+    onConnectionStatusChanged = nullptr;
+    onParamSuggestion = nullptr;
     disconnect();
 }
 

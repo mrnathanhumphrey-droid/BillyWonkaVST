@@ -61,17 +61,28 @@ GrooveEngineRnBAudioProcessorEditor::GrooveEngineRnBAudioProcessorEditor(
     addAndMakeVisible(keyboardComponent);
 
     // --- MCE Client ---
-    mceClient.onMessageReceived = [this](const juce::String& sender, const juce::String& text)
+    // Each callback captures a Component::SafePointer to the editor so that
+    // async lambdas queued by the MCEClient background thread cannot deref
+    // a destroyed editor. Without this, ARM64 PAC catches the freed-vtable
+    // access immediately (EXC_BAD_ACCESS); x86 silently rolls dice.
+    mceClient.onMessageReceived = [safeThis = juce::Component::SafePointer<GrooveEngineRnBAudioProcessorEditor>(this)]
+                                  (const juce::String& sender, const juce::String& text)
     {
-        aiAssistTab.addMessage(sender, text);
+        if (auto* self = safeThis.getComponent())
+            self->aiAssistTab.addMessage(sender, text);
     };
-    mceClient.onConnectionStatusChanged = [this](bool conn, int lat)
+    mceClient.onConnectionStatusChanged = [safeThis = juce::Component::SafePointer<GrooveEngineRnBAudioProcessorEditor>(this)]
+                                          (bool conn, int lat)
     {
-        aiAssistTab.setConnectionStatus(conn, lat);
+        if (auto* self = safeThis.getComponent())
+            self->aiAssistTab.setConnectionStatus(conn, lat);
     };
-    mceClient.onParamSuggestion = [this](const juce::StringPairArray& params)
+    mceClient.onParamSuggestion = [safeThis = juce::Component::SafePointer<GrooveEngineRnBAudioProcessorEditor>(this)]
+                                  (const juce::StringPairArray& params)
     {
-        auto& apvts = processorRef.getAPVTS();
+        auto* self = safeThis.getComponent();
+        if (self == nullptr) return;
+        auto& apvts = self->processorRef.getAPVTS();
         for (auto& key : params.getAllKeys())
         {
             if (auto* param = apvts.getParameter(key))
@@ -81,7 +92,7 @@ GrooveEngineRnBAudioProcessorEditor::GrooveEngineRnBAudioProcessorEditor(
                 param->setValueNotifyingHost(normalized);
             }
         }
-        aiAssistTab.addMessage("System", "Applied " + juce::String(params.size()) + " parameter changes.");
+        self->aiAssistTab.addMessage("System", "Applied " + juce::String(params.size()) + " parameter changes.");
     };
 
     // Wire AIAssistTab callbacks to MCEClient
@@ -119,6 +130,33 @@ GrooveEngineRnBAudioProcessorEditor::GrooveEngineRnBAudioProcessorEditor(
 
 GrooveEngineRnBAudioProcessorEditor::~GrooveEngineRnBAudioProcessorEditor()
 {
+    // Order matters here. The MCEClient background thread can queue async
+    // lambdas via juce::MessageManager::callAsync up until the very moment
+    // its thread is joined. If we just let normal member destruction run,
+    // a queued lambda may fire after aiAssistTab (or other editor members)
+    // has been destroyed, dereferencing freed memory.
+    //
+    // On ARM64 with pointer authentication this is an instant SIGSEGV
+    // (EXC_BAD_ACCESS with PAC failure subtype). On x86 it tends to silently
+    // hit garbage and sometimes "work." This destructor sequencing — plus
+    // the SafePointer captures in the lambdas above — covers both layers.
+
+    // 1. Null the std::function callbacks so any in-flight lambda noops
+    //    when it checks `if (onMessageReceived)` at fire time.
+    mceClient.onMessageReceived = nullptr;
+    mceClient.onConnectionStatusChanged = nullptr;
+    mceClient.onParamSuggestion = nullptr;
+
+    // 2. Synchronously join the MCEClient background thread. After this,
+    //    no new callAsync will be scheduled.
+    mceClient.disconnect();
+
+    // 3. Pump pending message-loop callbacks so anything already queued
+    //    fires (and noops via the null guards above) BEFORE editor members
+    //    begin destructing.
+    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
+        mm->runDispatchLoopUntil(50);
+
     stopTimer();
     setLookAndFeel(nullptr);
 }
